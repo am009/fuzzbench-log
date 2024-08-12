@@ -19,8 +19,8 @@ FROM $parent_image
 # Set AFL_NO_X86 to skip flaky tests.
 RUN git clone \
         --depth 1 \
-        --branch v2.57b \
-        https://github.com/google/AFL.git /afl && \
+        --branch master \
+        https://github.com/ThePatrickStar/AFL-Original.git /afl && \
     cd /afl && \
     CFLAGS= CXXFLAGS= AFL_NO_X86=1 make
 

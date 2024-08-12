@@ -13,3 +13,8 @@
 # limitations under the License.
 
 FROM gcr.io/fuzzbench/base-image
+
+RUN apt-get update && \
+    apt-get install jq wget -y && \
+    wget $(wget -q -O - https://api.github.com/repos/am009/fuzzbench-log/releases/latest  |  jq -r '.assets[] | select(.name | contains ("libfuzzerlog.so")) | .browser_download_url') -O /usr/local/lib/libfuzzerlog.so && \
+    chmod 777 /usr/local/lib/libfuzzerlog.so
