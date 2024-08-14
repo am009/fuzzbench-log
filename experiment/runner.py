@@ -188,6 +188,7 @@ def run_fuzzer(max_total_time, log_filename):
 
     # Set sanitizer options environment variables if this is a bug based
     # benchmark.
+    os.environ['FUZZER_LOG_FILE'] = os.path.join(os.path.dirname(log_filename), 'fuzzerlog.txt')
     env = None
     benchmark = environment.get('BENCHMARK')
     if benchmark_config.get_config(benchmark).get('type') == 'bug':
