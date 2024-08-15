@@ -28,9 +28,9 @@ RUN apt-get update -y && \
 # dependent code that may not work on the machines we actually fuzz on.
 # Create an empty object file which will become the FUZZER_LIB lib (since
 # honggfuzz doesn't need this when hfuzz-clang(++) is used).
-RUN git clone https://github.com/google/honggfuzz.git /honggfuzz && \
+RUN git clone https://github.com/ThePatrickStar/honggfuzz-test.git /honggfuzz && \
     cd /honggfuzz && \
-    git checkout oss-fuzz && \
+    git checkout master && \
     CFLAGS="-O3 -funroll-loops" make && \
     touch empty_lib.c && \
     cc -c -o empty_lib.o empty_lib.c
