@@ -23,3 +23,9 @@ ENV PATH="$PATH:/out"
 ENV AFL_SKIP_CPUFREQ=1
 ENV AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 ENV AFL_TESTCACHE_SIZE=2
+ENV FUZZERLOGLIB=/usr/local/lib/libfuzzerlog.so
+
+RUN apt-get update && \
+    apt-get install jq wget -y && \
+    wget $(wget -q -O - https://api.github.com/repos/am009/fuzzbench-log/releases/latest  |  jq -r '.assets[] | select(.name | contains ("libfuzzerlog.so")) | .browser_download_url') -O /usr/local/lib/libfuzzerlog.so && \
+    chmod 777 /usr/local/lib/libfuzzerlog.so
