@@ -35,10 +35,12 @@ RUN apt-get update && \
         libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
 
 # Download afl++.
-RUN git clone -b dev https://github.com/AFLplusplus/AFLplusplus /afl && \
+RUN git clone -b fuzzerloglib https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout 56d5aa3101945e81519a3fac8783d0d8fad82779 || \
+    git checkout 7292bad4981c1a64864279843299fab079c0fb9d || \
     true
+
+# ENV DEBUG=1
 
 # Build without Python support as we don't need it.
 # Set AFL_NO_X86 to skip flaky tests.
