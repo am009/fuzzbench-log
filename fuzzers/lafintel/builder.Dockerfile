@@ -22,21 +22,10 @@ RUN apt-get update -y && \
     libstdc++-5-dev \
     wget
 
-# Download AFL and compile using default compiler.
-# We need afl-2.26b
-# Use a copy of
-# https://lcamtuf.coredump.cx/afl/releases/afl-2.26b.tgz
-# to avoid network flakiness.
-RUN wget https://storage.googleapis.com/fuzzbench-files/afl-2.26b.tgz -O /afl-2.26b.tgz && \
-    tar xvzf /afl-2.26b.tgz -C / && \
-    mv /afl-2.26b /afl && \
+# fuzzerlog lafintel
+RUN git clone https://github.com/am009/lafintel.git /afl && \
     cd /afl && \
-    git clone https://github.com/google/AFL.git /afl/recent_afl && \
-    cd /afl/recent_afl && \ 
-    git checkout 8da80951dd7eeeb3e3b5a3bcd36c485045f40274 && \
-    cd /afl/ && \
-    cp /afl/recent_afl/*.c /afl/ && \
-    cp /afl/recent_afl/*.h /afl/ && \
+    git checkout 91590b1aabb7b116e7ea9b5fb12ac0a88dd11903 && \
     AFL_NO_X86=1 make
 
 # Set the env variables for LLVM passes and test units.
