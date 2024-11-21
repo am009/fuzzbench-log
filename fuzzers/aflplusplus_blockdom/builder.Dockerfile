@@ -53,7 +53,7 @@ RUN apt-get update && \
 # Download afl++.
 RUN git clone -b dominator https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout 5589236e2a63edba076bcdaf6361a219efbe86d6 || \
+    git checkout b70e7aed434f101d42dd0acb6a9702c0b72c6002 || \
     true
 
 # ENV DEBUG=1
