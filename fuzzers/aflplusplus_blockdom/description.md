@@ -6,6 +6,7 @@ TODO:
 test:
 ```
 make debug-builder-aflplusplus_blockdom-curl_curl_fuzzer_http
+make debug-builder-aflplusplus_blockdom-proj4_proj_crs_to_crs_fuzzer
 
 # in container
 mkdir /blockdom
