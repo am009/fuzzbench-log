@@ -157,7 +157,7 @@ def build(*args):  # pylint: disable=too-many-branches,too-many-statements
     # from writing AFL specific messages to stderr.
     # os.environ['AFL_QUIET'] = '1'
     # os.environ['AFL_DEBUG'] = '1'
-    os.environ['AFL_MAP_SIZE'] = '2621440'
+    os.environ['AFL_MAP_SIZE'] = '16777216'
     os.environ['DEBUG'] = '1'
 
     src = os.getenv('SRC')
