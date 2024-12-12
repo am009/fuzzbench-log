@@ -6,7 +6,7 @@ trials: 2
 # 6h
 # max_total_time: 21600
 # 23h
-max_total_time: 18000
+max_total_time: 86400
 
 # The location of the docker registry.
 # FIXME: Support custom docker registry.
