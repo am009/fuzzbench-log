@@ -70,7 +70,7 @@ def copy_coverage_binaries(benchmark):
     builder_image_url = benchmark_utils.get_builder_image_url(
         benchmark, 'coverage', environment.get('DOCKER_REGISTRY'))
     coverage_build_archive = f'coverage-build-{benchmark}.tar.gz'
-    coverage_build_archive_shared_dir_path = os.path.join(
+    coverage_build_archive_shared_dir_path = os.path.join( 
         shared_coverage_binaries_dir, coverage_build_archive)
     command = (
         '(cd /out; '

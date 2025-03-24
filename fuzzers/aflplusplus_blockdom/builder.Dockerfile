@@ -35,6 +35,9 @@ RUN apt-get update && \
         lsb-release wget software-properties-common gpg \
         libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev \
         && bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" bash 15 \
+        && ln -s /usr/local/lib/libc++.a /usr/lib/libc++.a \
+        && ln -s /usr/local/lib/libc++abi.a /usr/lib/libc++abi.a \
+        && ln -s /usr/local/lib/libc++experimental.a /usr/lib/libc++experimental.a \
         && rm /usr/local/bin/clang && ln -s /usr/bin/clang-15 /usr/bin/clang \
         && rm /usr/local/bin/clang++ && ln -s /usr/bin/clang++-15 /usr/bin/clang++ \
         && rm /usr/local/bin/llvm-config && ln -s /usr/bin/llvm-config-15 /usr/bin/llvm-config \
@@ -53,7 +56,7 @@ RUN apt-get update && \
 # Download afl++.
 RUN git clone -b dominator https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout bc0d1732f754cd2034d9f0f1953f0bc74a60dd42 || \
+    git checkout 64800990e853e7de42e6899771ee334af6fae567 || \
     true
 
 # ENV DEBUG=1
@@ -65,4 +68,8 @@ RUN cd /afl && \
     unset CFLAGS CXXFLAGS && \
     export CC=clang AFL_NO_X86=1 && \
     PYTHON_INCLUDE=/ make source-only && \
-    cp utils/aflpp_driver/libAFLDriver.a /
+    cp utils/aflpp_driver/libAFLDriver.a / && \
+    mkdir -p /out/blockdom/
+
+env FUZZERLOG_DOMTREE_DIR=/out/blockdom/
+env FUZZERLOG_PRINT_MODULE_AFTER=1

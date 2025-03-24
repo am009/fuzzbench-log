@@ -235,7 +235,8 @@ def fuzz(input_corpus,
          skip=False,
          no_cmplog=False):  # pylint: disable=too-many-arguments
     """Run fuzzer."""
-    assert(False, 'fuzzerlog-blockdom: This fuzzer is only used for building')
+    if input('fuzzerlog-blockdom: This fuzzer is only used for building, continue y/n?').strip() != 'y':
+        assert(False, 'fuzzerlog-blockdom: This fuzzer is only used for building')
     # Calculate CmpLog binary path from the instrumented target binary.
     target_binary_directory = os.path.dirname(target_binary)
     cmplog_target_binary_directory = (
