@@ -35,7 +35,7 @@ do
 done{% endif %}
 
 docker run \
---privileged --cpus={{num_cpu_cores}} \
+--privileged --cpus={{num_cpu_cores}} --rm \
 {% if cpuset %}--cpuset-cpus={{cpuset}} {% endif %}\
 -e INSTANCE_NAME={{instance_name}} \
 -e FUZZER={{fuzzer}} \
