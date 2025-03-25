@@ -30,7 +30,7 @@ RUN apt-get update -y && \
 # honggfuzz doesn't need this when hfuzz-clang(++) is used).
 RUN git clone https://github.com/ThePatrickStar/honggfuzz-test.git /honggfuzz && \
     cd /honggfuzz && \
-    git checkout 250324-decrease-dyndict && \
+    git checkout 250325-decrease-dyndict && \
     CFLAGS="-O3 -funroll-loops" make && \
     touch empty_lib.c && \
     cc -c -o empty_lib.o empty_lib.c
