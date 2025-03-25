@@ -35,9 +35,9 @@ RUN apt-get update && \
         libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
 
 # Download afl++.
-RUN git clone -b 250324-dyndict-inc https://github.com/am009/AFLplusplus-log /afl && \
+RUN git clone -b 250325-dyndict-inc https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout bde150f81bdb8b3ab81aa3bb016d4e20c4977e7d || \
+    git checkout c4fc2d6a06fb66b6ee020589c187e13e1bfdb533 || \
     true
 
 # ENV DEBUG=1
