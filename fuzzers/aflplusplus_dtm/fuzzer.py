@@ -45,8 +45,7 @@ def build(*args):  # pylint: disable=too-many-branches,too-many-statements
 
     # If nothing was set this is the default:
     if not build_modes:
-        build_modes = ['tracepc', 'dict2file']
-    assert 'cmplog' not in build_modes
+        build_modes = ['tracepc', 'cmplog', 'dict2file']
 
     # For bug type benchmarks we have to instrument via native clang pcguard :(
     build_flags = os.environ['CFLAGS']
@@ -258,8 +257,7 @@ def fuzz(input_corpus,
     # os.environ['AFL_ALIGNED_ALLOC'] = '1' # align malloc to max_align_t
     # os.environ['AFL_PRELOAD'] = '/afl/libdislocator.so'
 
-    # skip the enhanced deterministic fuzzing
-    flags = ['-z'] + list(flags)
+    flags = list(flags)
 
     if os.path.exists('./afl++.dict'):
         flags += ['-x', './afl++.dict']

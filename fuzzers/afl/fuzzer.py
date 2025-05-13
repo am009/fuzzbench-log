@@ -115,8 +115,8 @@ def run_afl_fuzz(input_corpus,
     ]
     # Use '-d' to skip deterministic mode, as long as it it compatible with
     # additional flags.
-    if not additional_flags or check_skip_det_compatible(additional_flags):
-        command.append('-d')
+    # if not additional_flags or check_skip_det_compatible(additional_flags):
+    #     command.append('-d')
     if additional_flags:
         command.extend(additional_flags)
     dictionary_path = utils.get_dictionary_path(target_binary)
