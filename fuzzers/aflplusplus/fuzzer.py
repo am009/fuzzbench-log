@@ -257,7 +257,8 @@ def fuzz(input_corpus,
     # os.environ['AFL_ALIGNED_ALLOC'] = '1' # align malloc to max_align_t
     # os.environ['AFL_PRELOAD'] = '/afl/libdislocator.so'
 
-    flags = list(flags)
+    # skip the enhanced deterministic fuzzing
+    flags = ['-z'] + list(flags)
 
     if os.path.exists('./afl++.dict'):
         flags += ['-x', './afl++.dict']
