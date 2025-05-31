@@ -258,7 +258,8 @@ def fuzz(input_corpus,
     # os.environ['AFL_PRELOAD'] = '/afl/libdislocator.so'
 
     # skip the enhanced deterministic fuzzing
-    flags = ['-z', '-p', 'lin'] + list(flags)
+    # old sequencial seed selection
+    flags = ['-z', '-Z'] + list(flags)
 
     if os.path.exists('./afl++.dict'):
         flags += ['-x', './afl++.dict']
