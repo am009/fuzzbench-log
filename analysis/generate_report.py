@@ -205,6 +205,7 @@ def generate_report(experiment_names,
                     experiment_benchmarks=None):
     """Generate report helper."""
     if merge_with_clobber_nonprivate:
+        # 收集需要合并的实验的名称
         experiment_names = (
             queries.add_nonprivate_experiments_for_merge_with_clobber(
                 experiment_names))
@@ -227,6 +228,7 @@ def generate_report(experiment_names,
     # is a good chance user misspelled something.
     data_utils.validate_data(experiment_df)
 
+    # clobber会智能合并
     experiment_df = modify_experiment_data_if_requested(
         experiment_df, experiment_names, benchmarks, fuzzers,
         label_by_experiment, end_time, merge_with_clobber)
