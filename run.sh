@@ -4,7 +4,7 @@ SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
 cd $SCRIPTPATH
 
-BENCHNAME=proj7-24h
+BENCHNAME=projnew1
 
 # libafl_libfuzzer bad benchmarks
 
