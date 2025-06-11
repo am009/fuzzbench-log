@@ -36,7 +36,7 @@ RUN DOCKER_VERSION=18.09.7 && \
     rm -rf docker docker-$DOCKER_VERSION.tgz
 
 # Install cloud sql proxy.
-RUN curl https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 > \
+RUN curl http://192.168.2.158/cloud_sql_proxy.linux.amd64 > \
     /usr/local/bin/cloud_sql_proxy
 RUN chmod +x /usr/local/bin/cloud_sql_proxy
 
