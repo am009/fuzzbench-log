@@ -30,7 +30,7 @@ logger = logs.Logger()  # pylint: disable=invalid-name
 def make(targets):
     """Invoke |make| with |targets| and return the result."""
     command = ['make', '-j'] + targets
-    return new_process.execute(command, cwd=utils.ROOT_DIR)
+    return new_process.execute(command, cwd=utils.ROOT_DIR, write_to_stdout=True)
 
 
 def build_base_images() -> Tuple[int, str]:
