@@ -37,7 +37,7 @@ RUN apt-get update && \
 # Download afl++.
 RUN git clone -b 20250531-no-enhanced-det https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout a5c1506e1cf46e30b48281da8e701410f7e2b0e1 || \
+    git checkout 8847d8c8a2155ea0b6a334b03942e0877582e215 || \
     true
 
 # ENV DEBUG=1
