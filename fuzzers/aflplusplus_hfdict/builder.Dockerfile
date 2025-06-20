@@ -44,7 +44,7 @@ RUN git clone -b dev-honggfuzzdict https://github.com/am009/AFLplusplus-log /afl
 
 # Build without Python support as we don't need it.
 # Set AFL_NO_X86 to skip flaky tests.
-RUN cd /afl && sed -i "s/#if LLVM_VERSION_MAJOR >= 15/#if LLVM_VERSION_MAJOR >= 16/" instrumentation/SanitizerCoverageLTO.so.cc \
+RUN cd /afl && \
     unset CFLAGS CXXFLAGS && \
     export CC=clang AFL_NO_X86=1 && \
     PYTHON_INCLUDE=/ make && \
