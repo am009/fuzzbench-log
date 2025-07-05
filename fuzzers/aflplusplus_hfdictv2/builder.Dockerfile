@@ -35,9 +35,9 @@ RUN apt-get update && \
         libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
 
 # Download afl++.
-RUN git clone -b dev-honggfuzzdict https://github.com/am009/AFLplusplus-log /afl && \
+RUN git clone -b hfdict-v2 https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout cb7cdb6df53f9c2a0cccff066381d5375c4bd84a || \
+    git checkout 40d6a9e1a8f4be5bd7b27bf48f0d2435c16dc08d || \
     true
 
 # ENV DEBUG=1
