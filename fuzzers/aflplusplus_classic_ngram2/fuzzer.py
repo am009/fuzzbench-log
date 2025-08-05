@@ -45,7 +45,7 @@ def build(*args):  # pylint: disable=too-many-branches,too-many-statements
 
     # If nothing was set this is the default:
     if not build_modes:
-        build_modes = ['tracepc', 'cmplog', 'dict2file', 'ngram2']
+        build_modes = ['classic', 'ngram2']
     else:
         assert False, "Cannot specify build modes!!"
 
