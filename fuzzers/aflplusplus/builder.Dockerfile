@@ -37,7 +37,7 @@ RUN apt-get update && \
 # Download afl++.
 RUN git clone -b fuzzerloglib https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout 7292bad4981c1a64864279843299fab079c0fb9d || \
+    git checkout 0565b1b5374a6a81b173c0d09f5ae68b7e7009f9 || \
     true
 
 # ENV DEBUG=1
