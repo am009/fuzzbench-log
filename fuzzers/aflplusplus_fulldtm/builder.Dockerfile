@@ -35,9 +35,9 @@ RUN apt-get update && \
         libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
 
 # Download afl++.
-RUN git clone -b 20250531-no-enhanced-det https://github.com/am009/AFLplusplus-log /afl && \
+RUN git clone -b 20250811-no-enhanced-det https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout 8847d8c8a2155ea0b6a334b03942e0877582e215 || \
+    git checkout 4468704ee5b9c22b47eeacc86e9c5baf4e9a3d62 || \
     true
 
 # ENV DEBUG=1
