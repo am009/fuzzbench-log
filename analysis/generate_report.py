@@ -185,6 +185,35 @@ def modify_experiment_data_if_requested(  # pylint: disable=too-many-arguments
 
     return experiment_df
 
+# After the existing experiment_df is loaded
+def get_max_coverage_data(df):
+    # First sort by time in descending order to ensure we get the latest time when coverage is equal
+    df = df.sort_values('time', ascending=False)
+    
+    # Group by experiment, fuzzer, benchmark and get the row with max edges_covered
+    max_covered_df = df.loc[df.groupby(['experiment', 'fuzzer', 'benchmark', 'trial_id'])['edges_covered'].idxmax()]
+
+    # Verify these are also the latest times
+    time_max_df = df.loc[df.groupby(['experiment', 'fuzzer', 'benchmark', 'trial_id'])['time'].idxmax()]
+    
+    print("Maximun covered:\n")
+    print(max_covered_df[['experiment', 'fuzzer', 'benchmark', 'trial_id', 'time', 'edges_covered']])
+    print("Latest time:\n")
+    print(time_max_df[['experiment', 'fuzzer', 'benchmark', 'trial_id', 'time', 'edges_covered']])
+    # Assert that max coverage rows are same as max time rows
+    pd.testing.assert_frame_equal(max_covered_df, time_max_df, 
+                                check_dtype=False, 
+                                check_index_type=False)
+    
+    # Sort for better readability
+    result_df = max_covered_df.sort_values(['experiment', 'fuzzer', 'benchmark'])
+    
+    # Display results
+    print("\nShape before deduplication:", df.shape)
+    print("Shape after deduplication:", result_df.shape)
+    print("\nFirst few rows of deduplicated data:")
+    
+    return result_df
 
 # pylint: disable=too-many-arguments,too-many-locals
 def generate_report(experiment_names,
@@ -223,6 +252,12 @@ def generate_report(experiment_names,
         from_cached_data,
         data_path,
         main_experiment_benchmarks=experiment_benchmarks)
+
+    # get_max_coverage_data(experiment_df)
+
+    # Columns in experiment_df: ['git_hash', 'experiment_filestore', 'experiment', 'fuzzer', 'benchmark',
+    #    'time_started', 'time_ended', 'trial_id', 'time', 'edges_covered',
+    #    'fuzzer_stats', 'crash_key']
 
     # TODO(metzman): Ensure that each experiment is in the df. Otherwise there
     # is a good chance user misspelled something.
