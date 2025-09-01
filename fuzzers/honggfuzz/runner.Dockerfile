@@ -16,5 +16,5 @@ FROM gcr.io/fuzzbench/base-image
 
 # honggfuzz requires libfd and libunwid
 RUN apt-get update -y && apt-get install -y libbfd-dev libunwind-dev jq wget && \
-    wget https://github.com/am009/fuzzbench-log/releases/download/20250810/libfuzzerlog.so -O /usr/local/lib/libfuzzerlog.so && \
+    wget $(wget -q -O - https://api.github.com/repos/am009/fuzzbench-log/releases/latest  |  jq -r '.assets[] | select(.name | contains ("libfuzzerlog.so")) | .browser_download_url') -O /usr/local/lib/libfuzzerlog.so && \
     chmod 777 /usr/local/lib/libfuzzerlog.so
