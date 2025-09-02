@@ -49,8 +49,8 @@ RUN cd /tmp/ && \
 
 # Install common python dependencies.
 COPY ./requirements.txt /tmp
-RUN pip install -i https://mirrors.hust.edu.cn/pypi/web/simple pip -U && \
-    pip config set global.index-url https://mirrors.hust.edu.cn/pypi/web/simple && \
+RUN pip install -i https://mirrors.sustech.edu.cn/pypi/web/simple pip -U && \
+    pip config set global.index-url https://mirrors.sustech.edu.cn/pypi/web/simple && \
     pip install --resume-retries 5 -r /tmp/requirements.txt
 
 # Install dependencies required by google-cloud-cli.
