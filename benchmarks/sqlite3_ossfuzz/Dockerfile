@@ -23,7 +23,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y make autoconf aut
 
 RUN mkdir $SRC/sqlite3 && \
     cd $SRC/sqlite3 && \
-    curl 'https://sqlite.org/src/tarball/sqlite.tar.gz?r=c78cbf2e86850cc6' -o sqlite3.tar.gz && \
+    curl 'http://172.19.193.39/sqlite.tgz' -o sqlite3.tar.gz && \
         tar xzf sqlite3.tar.gz --strip-components 1
 
 RUN find $SRC/sqlite3 -name "*.test" | xargs zip $SRC/ossfuzz_seed_corpus.zip
