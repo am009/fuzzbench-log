@@ -32,6 +32,7 @@ RUN apt-get update && \
     libtool \
     pkg-config \
     libgcrypt-dev && \
+    wget http://mirrors.ustc.edu.cn/gnu/m4/m4-$M4_VERSION.tar.gz || \
     wget https://ftp.gnu.org/gnu/m4/m4-$M4_VERSION.tar.gz && \
     tar xf m4-$M4_VERSION.tar.gz && \
     rm m4-$M4_VERSION.tar.gz && \
@@ -41,6 +42,7 @@ RUN apt-get update && \
         make && \
         make install \
     ) && \
+    wget http://mirrors.ustc.edu.cn/gnu/autoconf/autoconf-$AUTOCONF_VERSION.tar.gz || \
     wget https://ftp.gnu.org/gnu/autoconf/autoconf-$AUTOCONF_VERSION.tar.gz && \
     tar xf autoconf-$AUTOCONF_VERSION.tar.gz && \
     rm autoconf-$AUTOCONF_VERSION.tar.gz && \
@@ -50,6 +52,7 @@ RUN apt-get update && \
         make && \
         make install \
     ) && \
+    wget http://mirrors.ustc.edu.cn/gnu/automake/automake-$AUTOMAKE_VERSION.tar.gz || \
     wget https://ftp.gnu.org/gnu/automake/automake-$AUTOMAKE_VERSION.tar.gz && \
     tar xf automake-$AUTOMAKE_VERSION.tar.gz && \
     rm automake-$AUTOMAKE_VERSION.tar.gz && \
