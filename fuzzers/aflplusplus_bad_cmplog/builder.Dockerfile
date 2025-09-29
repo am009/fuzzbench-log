@@ -17,14 +17,15 @@ FROM $parent_image
 
 # Install libstdc++ to use llvm_mode.
 RUN apt-get update && \
-    apt-get install -y wget libstdc++-5-dev libtool-bin automake flex bison \
-                       libglib2.0-dev libpixman-1-dev python3-setuptools unzip \
-                       apt-utils apt-transport-https ca-certificates
+    apt-get install -y wget build-essential ninja-build libtool-bin automake cmake git flex bison \
+                       libglib2.0-dev libpixman-1-dev cargo libgtk-3-dev python3-dev python3-setuptools unzip \
+                       apt-utils apt-transport-https ca-certificates gcc-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-plugin-dev \
+        libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
 
 # Download and compile afl++.
 RUN git clone -b 250924-bad-cmplog https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout 2df748e5b2cf0ad5a59de3854d2b38c3f5b2fc57 || \
+    git checkout 724811c23cb5d45444be45c378b8adfb612ae22f || \
     true
 
 # Build without Python support as we don't need it.
