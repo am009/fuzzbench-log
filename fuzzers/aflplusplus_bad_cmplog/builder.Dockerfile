@@ -25,7 +25,7 @@ RUN apt-get update && \
 # Download and compile afl++.
 RUN git clone -b 250924-bad-cmplog https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout 724811c23cb5d45444be45c378b8adfb612ae22f || \
+    git checkout 4a44f6a35ceff12b586cd034e64033205a617a8d || \
     true
 
 # Build without Python support as we don't need it.
