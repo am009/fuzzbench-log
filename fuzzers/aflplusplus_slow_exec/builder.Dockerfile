@@ -37,7 +37,7 @@ RUN apt-get update && \
 # Download afl++.
 RUN git clone -b 20250929-exec-speed-slow https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout fecd6ffd15a388d2dbc259fa053434b4fe42a2a3 || \
+    git checkout 8046258e3e1f42fa6c1dc6898d0becdc94ecbf5d || \
     true
 
 # ENV DEBUG=1
