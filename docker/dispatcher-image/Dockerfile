@@ -30,13 +30,13 @@ RUN apt-get update -y && apt-get install -y \
 
 # Install docker cli.
 RUN DOCKER_VERSION=18.09.7 && \
-    curl -O http://172.19.193.39/docker-18.09.7.tgz && \
+    curl -O http://190.92.231.153/docker-18.09.7.tgz && \
     tar -xvzf docker-$DOCKER_VERSION.tgz && \
     mv docker/docker /usr/bin/ && \
     rm -rf docker docker-$DOCKER_VERSION.tgz
 
 # Install cloud sql proxy.
-RUN curl http://172.19.193.39/cloud_sql_proxy.linux.amd64 > \
+RUN curl http://190.92.231.153/cloud_sql_proxy.linux.amd64 > \
     /usr/local/bin/cloud_sql_proxy
 RUN chmod +x /usr/local/bin/cloud_sql_proxy
 

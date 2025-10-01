@@ -44,7 +44,7 @@ cd ..
 
 # build libtiff.a
 cd libtiff
-sed -i 's|https://git.savannah.gnu.org/cgit/config.git/plain/|http://172.19.193.39/|' autogen.sh
+sed -i 's|https://git.savannah.gnu.org/cgit/config.git/plain/|http://190.92.231.153/|' autogen.sh
 ./autogen.sh
 ./configure --disable-shared --prefix=$SRC/install
 make -j$(nproc)
