@@ -35,9 +35,9 @@ RUN apt-get update && \
         libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
 
 # Download afl++.
-RUN git clone -b 20250929-exec-speed-slow https://github.com/am009/AFLplusplus-log /afl && \
+RUN git clone -b 251001-slow https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout 8046258e3e1f42fa6c1dc6898d0becdc94ecbf5d || \
+    git checkout 5657f463f45f88e28a16a5fe45d35d39f92bab88 || \
     true
 
 # ENV DEBUG=1
