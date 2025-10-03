@@ -2,6 +2,7 @@
 
 # 根据启动命令过滤删除容器
 docker ps -a | grep '"/bin/sh -c'| awk '{print $1}' | xargs -I {} docker rm {}
+docker ps -a | grep '"/bin/bash -c' | awk '{print $1}' | xargs -I {} docker rm {}
 
 # 根据正则过滤强制删除镜像
 docker images -a -q "gcr.io/fuzzbench/*/*/*" | xargs -I {} docker rmi -f {};
