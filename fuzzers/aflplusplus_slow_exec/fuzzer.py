@@ -312,7 +312,7 @@ def fuzz(input_corpus,
 
     # slow_exec
     os.environ['AFL_KEEP_TIMEOUTS'] = '1'
-    os.environ['AFL_FAST_CAL'] = '1'
+    os.environ['AFL_NO_STARTUP_CALIBRATION'] = '1'
     os.environ['AFL_DISABLE_TRIM'] = '1'
     
     os.environ['AFL_NO_WARN_INSTABILITY'] = '1'
