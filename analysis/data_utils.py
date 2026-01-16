@@ -288,8 +288,7 @@ def benchmark_rank_by_percent(benchmark_snapshot_df, key='edges_covered'):
     logger.debug('Median: %s',
                  benchmark_snapshot_df.groupby('fuzzer')[max_key].median())
     benchmark_snapshot_df = benchmark_snapshot_df.fillna(0)
-    medians = benchmark_snapshot_df.groupby('fuzzer')[max_key].median().astype(
-        int)
+    medians = benchmark_snapshot_df.groupby('fuzzer')[max_key].median().round(2)
     return medians.sort_values(ascending=False)
 
 

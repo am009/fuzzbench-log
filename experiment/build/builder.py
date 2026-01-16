@@ -43,8 +43,8 @@ else:
     import experiment.build.local_build as buildlib
 
 # Build attempts and wait interval.
-NUM_BUILD_ATTEMPTS = 3
-BUILD_FAIL_WAIT = 5 * 60
+NUM_BUILD_ATTEMPTS = 2
+BUILD_FAIL_WAIT = 1 * 60
 
 BENCHMARKS_DIR = os.path.join(utils.ROOT_DIR, 'benchmarks')
 
@@ -162,6 +162,7 @@ def retry_build_loop(build_func: types.FunctionType,
             logs.info('Sleeping for %d secs before retrying.', sleep_interval)
             time.sleep(sleep_interval)
 
+    # assert len(curr_failures) == 0
     return successes
 
 

@@ -513,6 +513,8 @@ class LocalDispatcher(BaseDispatcher):
             '-e',
             'LOCAL_EXPERIMENT=True',
             '-e',
+            'FORCE_LOCAL=True',
+            '-e',
             set_instance_name_arg,
             '-e',
             set_experiment_arg,
