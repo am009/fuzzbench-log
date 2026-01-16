@@ -60,6 +60,15 @@ SNAPSHOT_QUEUE_GET_TIMEOUT = 1
 SNAPSHOTS_BATCH_SAVE_SIZE = 100
 MEASUREMENT_LOOP_WAIT = 30
 
+FUZZER_QUEUE_LOC = {
+    "honggfuzz": "corpus",
+    "aflplusplus": "default/queue",
+    "libafl": "queue",
+}
+
+# Flag to track if the valid corpus path warning has been printed
+_VALID_PATH_WARNING_PRINTED = False
+
 
 def exists_in_experiment_filestore(path: pathlib.Path) -> bool:
     """Returns True if |path| exists in the experiment_filestore."""
@@ -318,15 +327,59 @@ def get_unmeasured_snapshots(
     return unmeasured_first_snapshots + unmeasured_latest_snapshots
 
 
-def extract_corpus(corpus_archive: str, output_directory: str):
-    """Extract a corpus from |corpus_archive| to |output_directory|."""
+def extract_corpus(corpus_archive: str, output_directory: str, fuzzer: str):
+    """Extract a corpus from |corpus_archive| to |output_directory|.
+    Only extracts files from the fuzzer-specific queue location."""
     pathlib.Path(output_directory).mkdir(exist_ok=True)
+
+    # Get the target path for this fuzzer
+    target_path = None
+    for fuzzer_variant in FUZZER_QUEUE_LOC:
+        if fuzzer_variant in fuzzer:
+            target_path = FUZZER_QUEUE_LOC[fuzzer_variant]
+            break
+    if not target_path:
+        logger.warning('Unknown fuzzer: %s. Extracting all files.', fuzzer)
+        target_path = ""
+
     with tarfile.open(corpus_archive, 'r:gz') as tar:
         for member in tar.getmembers():
 
             if not member.isfile():
                 # We don't care about directory structure.
                 # So skip if not a file.
+                continue
+
+            # Filter: only extract files from the specified path
+            # Allow top-level files with 40-byte hex filenames or named "default_seed"
+            if target_path:
+                good_file = False
+                if '/' not in member.name:  # Top-level file
+                    filename = member.name
+                    # Allow if filename is 40-byte hex string (default seeds) or "default_seed"
+                    if (len(filename) == 40 and all(c in '0123456789abcdefABCDEF' for c in filename)) or filename == 'default_seed':
+                        good_file = True  # Allow this file
+
+                # Normalize the path to handle trailing slashes
+                normalized_target = target_path.rstrip('/') + '/'
+                # Check if it's a top-level file that should be allowed
+                if member.name.startswith(normalized_target):
+                    # Check if file is directly in target path (not in subdirectory)
+                    relative_path = member.name[len(normalized_target):]
+                    if '/' not in relative_path:
+                        good_file = True
+                        # Print warning about valid corpus path only once
+                        global _VALID_PATH_WARNING_PRINTED
+                        if not _VALID_PATH_WARNING_PRINTED:
+                            logger.warning(
+                                'Valid corpus path detected. Target path: %s, Sample file: %s',
+                                target_path, member.name)
+                            _VALID_PATH_WARNING_PRINTED = True
+                if not good_file:
+                    continue
+
+            # For libafl, skip .metadata files
+            if "libafl" in fuzzer and member.name.endswith(".metadata"):
                 continue
 
             member_file_handle = tar.extractfile(member)
@@ -472,7 +525,7 @@ class SnapshotMeasurer(coverage_utils.TrialCoverage):  # pylint: disable=too-man
             self.logger.warning('Corpus not found: %s.', corpus_archive_path)
             return False
 
-        extract_corpus(corpus_archive_path, self.corpus_dir)
+        extract_corpus(corpus_archive_path, self.corpus_dir, self.fuzzer)
         return True
 
     def save_crash_files(self, cycle):
