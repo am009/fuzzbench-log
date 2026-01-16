@@ -17,9 +17,11 @@ FROM ubuntu:focal
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Python 3.10.8 is not the default version in Ubuntu 20.04 (Focal Fossa).
-ENV PYTHON_VERSION 3.10.8
+ENV PYTHON_VERSION=3.10.8
 # Install dependencies required by Python3 or Pip3.
-RUN apt-get update && \
+RUN sed -i "s/archive.ubuntu.com/mirrors.hust.edu.cn/g" /etc/apt/sources.list && \
+    sed -i "s/security.ubuntu.com/mirrors.hust.edu.cn/g" /etc/apt/sources.list && \
+    apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y \
     curl \
@@ -47,7 +49,9 @@ RUN cd /tmp/ && \
 
 # Install common python dependencies.
 COPY ./requirements.txt /tmp
-RUN pip install -r /tmp/requirements.txt
+RUN pip install -i https://mirrors.sustech.edu.cn/pypi/web/simple pip -U && \
+    pip config set global.index-url https://mirrors.sustech.edu.cn/pypi/web/simple && \
+    pip install --resume-retries 5 -r /tmp/requirements.txt
 
 # Install dependencies required by google-cloud-cli.
 RUN apt-get update && \

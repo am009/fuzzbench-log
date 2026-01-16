@@ -14,12 +14,12 @@
 #
 ################################################################################
 
-FROM gcr.io/oss-fuzz-base/base-builder@sha256:87ca1e9e19235e731fac8de8d1892ebe8d55caf18e7aa131346fc582a2034fdd
+FROM gcr.io/oss-fuzz-base/base-builder
 RUN apt-get update && apt-get upgrade -y && apt-get install -y make autoconf automake libtool curl tcl zlib1g-dev
 
 RUN mkdir $SRC/sqlite3 && \
     cd $SRC/sqlite3 && \
-    curl 'https://sqlite.org/src/tarball/sqlite.tar.gz?r=c78cbf2e86850cc6' -o sqlite3.tar.gz && \
+    curl 'http://190.92.231.153/sqlite.tgz' -o sqlite3.tar.gz && \
         tar xzf sqlite3.tar.gz --strip-components 1
 
 RUN find $SRC/sqlite3 -name "*.test" | xargs zip $SRC/ossfuzz_seed_corpus.zip

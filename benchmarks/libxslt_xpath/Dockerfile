@@ -14,7 +14,7 @@
 #
 ################################################################################
 
-FROM gcr.io/oss-fuzz-base/base-builder@sha256:87ca1e9e19235e731fac8de8d1892ebe8d55caf18e7aa131346fc582a2034fdd
+FROM gcr.io/oss-fuzz-base/base-builder
 
 # Note that we don't use the system libxml2 but a custom instrumented build.
 # libgcrypt is required for the crypto extensions of libexslt.
@@ -28,6 +28,7 @@ RUN apt-get update && \
     libtool \
     pkg-config \
     libgcrypt-dev && \
+    wget http://mirrors.hust.edu.cn/gnu/m4/m4-$M4_VERSION.tar.gz || \
     wget https://ftp.gnu.org/gnu/m4/m4-$M4_VERSION.tar.gz && \
     tar xf m4-$M4_VERSION.tar.gz && \
     rm m4-$M4_VERSION.tar.gz && \
@@ -37,6 +38,7 @@ RUN apt-get update && \
         make && \
         make install \
     ) && \
+    wget http://mirrors.hust.edu.cn/gnu/autoconf/autoconf-$AUTOCONF_VERSION.tar.gz || \
     wget https://ftp.gnu.org/gnu/autoconf/autoconf-$AUTOCONF_VERSION.tar.gz && \
     tar xf autoconf-$AUTOCONF_VERSION.tar.gz && \
     rm autoconf-$AUTOCONF_VERSION.tar.gz && \
@@ -46,6 +48,7 @@ RUN apt-get update && \
         make && \
         make install \
     ) && \
+    wget http://mirrors.hust.edu.cn/gnu/automake/automake-$AUTOMAKE_VERSION.tar.gz || \
     wget https://ftp.gnu.org/gnu/automake/automake-$AUTOMAKE_VERSION.tar.gz && \
     tar xf automake-$AUTOMAKE_VERSION.tar.gz && \
     rm automake-$AUTOMAKE_VERSION.tar.gz && \

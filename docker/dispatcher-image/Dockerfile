@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM gcr.io/oss-fuzz-base/base-clang@sha256:05774d8e388cb4975662c8eb25217e38a799d720b622e5c5d8abb79a76b49e53 AS base-clang
+FROM gcr.io/oss-fuzz-base/base-builder AS base-builder
 
 FROM gcr.io/fuzzbench/base-image
 
@@ -30,20 +30,20 @@ RUN apt-get update -y && apt-get install -y \
 
 # Install docker cli.
 RUN DOCKER_VERSION=18.09.7 && \
-    curl -O https://download.docker.com/linux/static/stable/x86_64/docker-$DOCKER_VERSION.tgz && \
+    curl -O http://190.92.231.153/docker-18.09.7.tgz && \
     tar -xvzf docker-$DOCKER_VERSION.tgz && \
     mv docker/docker /usr/bin/ && \
     rm -rf docker docker-$DOCKER_VERSION.tgz
 
 # Install cloud sql proxy.
-RUN curl https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 > \
+RUN curl http://190.92.231.153/cloud_sql_proxy.linux.amd64 > \
     /usr/local/bin/cloud_sql_proxy
 RUN chmod +x /usr/local/bin/cloud_sql_proxy
 
 # Copy llvm-tool binaries needed for clang source-code based coverage and
 # symbolization.
-COPY --from=base-clang /usr/local/bin/llvm-cov /usr/local/bin/
-COPY --from=base-clang /usr/local/bin/llvm-profdata /usr/local/bin/
-COPY --from=base-clang /usr/local/bin/llvm-symbolizer /usr/local/bin/
+COPY --from=base-builder /usr/local/bin/llvm-cov /usr/local/bin/
+COPY --from=base-builder /usr/local/bin/llvm-profdata /usr/local/bin/
+COPY --from=base-builder /usr/local/bin/llvm-symbolizer /usr/local/bin/
 
 COPY startup-dispatcher.sh $WORK/
