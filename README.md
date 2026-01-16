@@ -1,61 +1,39 @@
-# FuzzBench: Fuzzer Benchmarking As a Service
+# FuzzBench fork that provides customized analysis
 
-FuzzBench is a free service that evaluates fuzzers on a wide variety of
-real-world benchmarks, at Google scale. The goal of FuzzBench is to make it
-painless to rigorously evaluate fuzzing research and make fuzzing research
-easier for the community to adopt. We invite members of the research community
-to contribute their fuzzers and give us feedback on improving our evaluation
-techniques.
+This fork provides a special fuzzer called aflplusplus_blockdom, which extract block domination info and call graph and LTO module with debug info.
 
-FuzzBench provides:
+## Initialize
 
-* An easy API for integrating fuzzers.
-* Benchmarks from real-world projects. FuzzBench can use any
-  [OSS-Fuzz](https://github.com/google/oss-fuzz) project as a benchmark.
-* A reporting library that produces reports with graphs and statistical tests
-  to help you understand the significance of results.
+1. build base-image and dispatcher-image locally first.
+```
+make base-image
+make dispatcher-image
+make worker
 
-To participate, submit your fuzzer to run on the FuzzBench platform by following
-[our simple guide](
-https://google.github.io/fuzzbench/getting-started/).
-After your integration is accepted, we will run a large-scale experiment using
-your fuzzer and generate a report comparing your fuzzer to others.
-See [a sample report](https://www.fuzzbench.com/reports/sample/index.html).
+# Update mirror for base-builder
+docker build -t gcr.io/oss-fuzz-base/base-builder-new - << 'EOF'
+FROM gcr.io/oss-fuzz-base/base-builder
+RUN sed -i "s/archive.ubuntu.com/mirrors.hust.edu.cn/g" /etc/apt/sources.list && \
+    sed -i "s/security.ubuntu.com/mirrors.hust.edu.cn/g" /etc/apt/sources.list
+EOF
 
-## Overview
-<kbd>
-  
-![FuzzBench Service diagram](docs/images/FuzzBench-service.png)
-  
-</kbd>
+docker rmi gcr.io/oss-fuzz-base/base-builder 2>/dev/null || true
+docker tag gcr.io/oss-fuzz-base/base-builder-new gcr.io/oss-fuzz-base/base-builder
+docker rmi gcr.io/oss-fuzz-base/base-builder-new
+```
 
 
-## Sample Report
+### Useful commands
 
-You can view our sample report
-[here](https://www.fuzzbench.com/reports/sample/index.html) and
-our periodically generated reports
-[here](https://www.fuzzbench.com/reports/index.html).
-The sample report is generated using 10 fuzzers against 24 real-world
-benchmarks, with 20 trials each and over a duration of 24 hours.
-The raw data in compressed CSV format can be found at the end of the report.
+```
+# To debug fuzzer build
+# make debug-builder-$FUZZER_NAME-$BENCHMARK_NAME
+# fuzzer_build
 
-When analyzing reports, we recommend:
-* Checking the strengths and weaknesses of a fuzzer against various benchmarks.
-* Looking at aggregate results to understand the overall significance of the
-  result.
+# To debug fuzzer run
+# make debug-$FUZZER_NAME-$BENCHMARK_NAME
+# $ROOT_DIR/docker/benchmark-runner/startup-runner.sh
 
-Please provide feedback on any inaccuracies and potential improvements (such as
-integration changes, new benchmarks, etc.) by opening a GitHub issue
-[here](https://github.com/google/fuzzbench/issues/new).
-
-## Documentation
-
-Read our [detailed documentation](https://google.github.io/fuzzbench/) to learn
-how to use FuzzBench.
-
-## Contacts
-
-Join our [mailing list](https://groups.google.com/forum/#!forum/fuzzbench-users)
-for discussions and announcements, or send us a private email at
-[fuzzbench@google.com](mailto:fuzzbench@google.com).
+# To test fuzzer run
+make test-run-honggfuzz_latest-sqlite3_ossfuzz
+```
