@@ -218,6 +218,7 @@ def run_fuzzer(max_total_time, log_filename):
             with open(log_filename, 'wb') as log_file:
                 new_process.execute(command,
                                     timeout=max_total_time,
+                                    write_to_stdout=False,
                                     output_file=log_file,
                                     kill_children=True,
                                     env=env)

@@ -281,6 +281,7 @@ def generate_json_summary(coverage_binary,
 
     with open(output_file, 'w', encoding='utf-8') as dst_file:
         result = new_process.execute(command,
+                                     write_to_stdout=False,
                                      output_file=dst_file,
                                      expect_zero=False)
     return result

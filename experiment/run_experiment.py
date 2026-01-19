@@ -537,7 +537,7 @@ class LocalDispatcher(BaseDispatcher):
             'docker',
             'run',
             '-ti',
-            '--rm',
+            # '--rm',
             '-v',
             '/var/run/docker.sock:/var/run/docker.sock',
             '-v',

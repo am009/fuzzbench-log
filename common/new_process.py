@@ -73,7 +73,7 @@ def execute(  # pylint: disable=too-many-locals,too-many-branches
         *args,
         expect_zero: bool = True,
         timeout: Optional[int] = None,
-        write_to_stdout=False,
+        write_to_stdout = True,
         # If not set, will default to PIPE.
         output_file: Optional[int] = None,
         # Not True by default because we can't always set group on processes.

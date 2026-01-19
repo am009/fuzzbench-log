@@ -56,6 +56,7 @@ class TestIntegrationExecute:
         with open(output_file_path, 'w', encoding='utf-8') as output_file:
             new_process.execute(self.COMMAND,
                                 timeout=1,
+                                write_to_stdout=False,
                                 output_file=output_file,
                                 expect_zero=False)
 
