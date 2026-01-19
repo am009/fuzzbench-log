@@ -544,7 +544,7 @@ class LocalDispatcher(BaseDispatcher):
             shared_experiment_filestore_arg,
             '-v',
             shared_report_filestore_arg,
-        ] + environment_args + [
+        ] + (['-p', '5678:5678'] if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else []) + environment_args + [
             '--shm-size=2g',
             '--cap-add=SYS_PTRACE',
             '--cap-add=SYS_NICE',
@@ -555,8 +555,10 @@ class LocalDispatcher(BaseDispatcher):
             'rsync -r '
             '"${EXPERIMENT_FILESTORE}/${EXPERIMENT}/input/" ${WORK} && '
             'mkdir ${WORK}/src && '
-            'tar -xvzf ${WORK}/src.tar.gz -C ${WORK}/src && '
-            'PYTHONPATH=${WORK}/src python3 '
+            'tar -xvzf ${WORK}/src.tar.gz -C ${WORK}/src && ' +
+            ('python3 -m pip install debugpy && ' if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else '') +
+            'PYTHONPATH=${WORK}/src ' +
+            ('python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client ' if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else 'python3 ') +
             '${WORK}/src/experiment/dispatcher.py || '
             '/bin/bash'  # Open shell if experiment fails.
         ]
