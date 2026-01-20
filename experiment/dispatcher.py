@@ -24,6 +24,13 @@ import threading
 import time
 from typing import List
 
+# Ignore warnings to reduce output verbosity
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=UserWarning)
+warnings.simplefilter(action='ignore', category=DeprecationWarning)
+warnings.simplefilter(action='ignore', category=PendingDeprecationWarning)
+
 from common import random_corpus_fuzzing_utils
 from common import experiment_path as exp_path
 from common import experiment_utils

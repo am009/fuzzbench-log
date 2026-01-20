@@ -163,7 +163,7 @@ def add_bugs_covered_column(experiment_df):
     try:
         df['firsts'] = (firsts_data)
     except:
-        import traceback; traceback.print_exc()
+        # import traceback; traceback.print_exc()
         firsts_data = firsts_data.stack().reset_index(drop=True)
         df['firsts'] = (firsts_data)
 
