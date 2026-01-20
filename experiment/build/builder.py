@@ -162,7 +162,7 @@ def retry_build_loop(build_func: types.FunctionType,
             logs.info('Sleeping for %d secs before retrying.', sleep_interval)
             time.sleep(sleep_interval)
 
-    # assert len(curr_failures) == 0
+    assert len(curr_failures) == 0
     return successes
 
 
