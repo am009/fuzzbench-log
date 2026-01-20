@@ -58,7 +58,7 @@ RETRY_DELAY = 3
 FAIL_WAIT_SECONDS = 30
 SNAPSHOT_QUEUE_GET_TIMEOUT = 1
 SNAPSHOTS_BATCH_SAVE_SIZE = 100
-MEASUREMENT_LOOP_WAIT = 10
+MEASUREMENT_LOOP_WAIT = 30
 
 
 def exists_in_experiment_filestore(path: pathlib.Path) -> bool:
@@ -729,6 +729,17 @@ def measure_manager_inner_loop(experiment: str, max_cycle: int, request_queue,
     write measured snapshots to database. Returns False if there's no more
     snapshots left to be measured"""
     initialize_logs()
+
+    # Read results from response queue.
+    measured_snapshots = consume_snapshots_from_response_queue(
+        response_queue, queued_snapshots)
+    logger.info('Retrieved %d measured snapshots from response queue',
+                len(measured_snapshots))
+
+    # Save measured snapshots to database.
+    if measured_snapshots:
+        db_utils.add_all(measured_snapshots)
+
     # Read database to determine which snapshots needs measuring.
     unmeasured_snapshots = get_unmeasured_snapshots(experiment, max_cycle)
     logger.info('Retrieved %d unmeasured snapshots from measure manager',
@@ -748,16 +759,6 @@ def measure_manager_inner_loop(experiment: str, max_cycle: int, request_queue,
         if unmeasured_snapshot_identifier not in queued_snapshots:
             request_queue.put(unmeasured_snapshot)
             queued_snapshots.add(unmeasured_snapshot_identifier)
-
-    # Read results from response queue.
-    measured_snapshots = consume_snapshots_from_response_queue(
-        response_queue, queued_snapshots)
-    logger.info('Retrieved %d measured snapshots from response queue',
-                len(measured_snapshots))
-
-    # Save measured snapshots to database.
-    if measured_snapshots:
-        db_utils.add_all(measured_snapshots)
 
     return True
 
