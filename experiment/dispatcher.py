@@ -178,7 +178,7 @@ def dispatcher_main():
 
     is_complete = False
     while True:
-        time.sleep(LOOP_WAIT_SECONDS)
+        time.sleep(10)
         if not scheduler_loop_thread.is_alive():
             is_complete = not measurer_main_process.is_alive()
 

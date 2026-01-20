@@ -39,7 +39,7 @@ from database import utils as db_utils
 # minutes is an arbitrary amount of time.
 GRACE_TIME_SECONDS = 5 * 60
 
-FAIL_WAIT_SECONDS = 10 * 60
+FAIL_WAIT_SECONDS = 2 * 60
 
 logger = logs.Logger()  # pylint: disable=invalid-name
 
@@ -655,7 +655,7 @@ def update_started_trials(trial_proxies, trial_id_mapping, core_allocation):
 def start_trials(trials, experiment_config: dict, pool, core_allocation=None):
     """Start all |trials| that are possible to start. Marks the ones that were
     started as started."""
-    logger.info('Starting trials.')
+    # logger.info('Starting trials.')
     trial_id_mapping = {trial.id: trial for trial in trials}
 
     # Shuffle trials so that we don't create trials for the same fuzzer
