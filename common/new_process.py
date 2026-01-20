@@ -23,6 +23,7 @@ from common import logs
 
 LOG_LIMIT_FIELD = 10 * 1024  # 10 KB.
 
+logger = logs.Logger()
 
 class WrappedPopen:
     """A simple wrapper class around subprocess.Popen."""
@@ -87,6 +88,7 @@ def execute(  # pylint: disable=too-many-locals,too-many-branches
     elif not output_file:
         output_file = subprocess.PIPE
 
+    logger.warning("Execute: " + " ".join(command))
     kwargs['stdout'] = output_file
     kwargs['stderr'] = subprocess.STDOUT
     if kill_children:
