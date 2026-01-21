@@ -16,9 +16,11 @@
 
 FROM gcr.io/oss-fuzz-base/base-builder
 RUN apt-get update && \
-    apt-get install -y make cmake flex bison
+    apt-get install -y make cmake flex bison libbsd-dev
 
-RUN git clone https://github.com/the-tcpdump-group/libpcap.git libpcap
+RUN git clone https://github.com/the-tcpdump-group/libpcap.git libpcap && \
+    git -C libpcap checkout 17ff63e88ea99112a905eefc6f862dac20de09e1 && \
+    echo ZGlmZiAtLWdpdCBhL3BvcnRhYmlsaXR5LmggYi9wb3J0YWJpbGl0eS5oCmluZGV4IDg0ZDA3NzhhLi41NDQ5NTE2OSAxMDA2NDQKLS0tIGEvcG9ydGFiaWxpdHkuaAorKysgYi9wb3J0YWJpbGl0eS5oCkBAIC02NSw2ICs2NSw3IEBAIGV4dGVybiAiQyIgewogI2VuZGlmCiAKICNpZmRlZiBIQVZFX1NUUkxDUFkKKyAgI2luY2x1ZGUgPGJzZC9zdHJpbmcuaD4KICAgI2RlZmluZSBwY2FwX3N0cmxjcHkJc3RybGNweQogI2Vsc2UKICAgI2lmIGRlZmluZWQoX01TQ19WRVIpIHx8IGRlZmluZWQoX19NSU5HVzMyX18pCg== | base64 -d | patch libpcap/portability.h
 
 # For corpus as wireshark.
 RUN git clone https://github.com/the-tcpdump-group/tcpdump.git tcpdump && \
