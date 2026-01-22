@@ -23,22 +23,18 @@ RUN if which rustup; then rustup self uninstall -y; fi && \
 
 # Install dependencies.
 RUN apt-get update && \
-    apt-get remove -y llvm-10 && \
     apt-get install -y \
         build-essential \
         lsb-release wget software-properties-common gnupg && \
     apt-get install -y wget libstdc++5 libtool-bin automake flex bison \
         libglib2.0-dev libpixman-1-dev python3-setuptools unzip \
-        apt-utils apt-transport-https ca-certificates joe curl && \
-    wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 17
-
-RUN wget https://gist.githubusercontent.com/tokatoka/26f4ba95991c6e33139999976332aa8e/raw/698ac2087d58ce5c7a6ad59adce58dbfdc32bd46/createAliases.sh && chmod u+x ./createAliases.sh && ./createAliases.sh 
+        apt-utils apt-transport-https ca-certificates joe curl
 
 # Download libafl.
 RUN git clone https://github.com/AFLplusplus/LibAFL /libafl
 
 # Checkout a current commit
-RUN cd /libafl && git pull && git checkout bd49bdf4f64a50349d803646fb2afa9b8b104fa5 || true
+RUN cd /libafl && git pull && git checkout bd49bdf4f64a50349d803646fb2afa9b8b104fa5
 
 # Compile libafl.
 RUN cd /libafl && \
