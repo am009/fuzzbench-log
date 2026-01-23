@@ -177,19 +177,22 @@ def dispatcher_main():
     measurer_main_process.start()
 
     is_complete = False
+    count = 1
     while True:
-        time.sleep(10)
         if not scheduler_loop_thread.is_alive():
             is_complete = not measurer_main_process.is_alive()
 
-        # Generate periodic output reports.
-        reporter.output_report(experiment.config,
-                               in_progress=not is_complete,
-                               coverage_report=is_complete)
+        if count % 30 == 0:
+            # Generate periodic output reports.
+            reporter.output_report(experiment.config,
+                                in_progress=not is_complete,
+                                coverage_report=is_complete)
 
         if is_complete:
             # Experiment is complete, bail out.
             break
+        time.sleep(10)
+        count += 1
 
     scheduler_loop_thread.join()
     measurer_main_process.join()
