@@ -97,12 +97,12 @@ cd $SCRIPTPATH
 source .venv/bin/activate
 
 # Build the experiment command
-EXPERIMENT_CMD="PYTHONPATH=. python3 experiment/run_experiment.py"
+EXPERIMENT_CMD="PYTHONPATH=. python3 experiment/run_experiment.py --measurers-cpus 1 --runners-cpus 15"
 EXPERIMENT_CMD="$EXPERIMENT_CMD --experiment-config $SCRIPTPATH/fuzzbench.yaml"
 EXPERIMENT_CMD="$EXPERIMENT_CMD --experiment-name $EXPERIMENT_NAME"
 EXPERIMENT_CMD="$EXPERIMENT_CMD --benchmarks ${BENCHMARK_ARRAY[*]}"
 EXPERIMENT_CMD="$EXPERIMENT_CMD --fuzzers ${FUZZER_ARRAY[*]}"
-EXPERIMENT_CMD="$EXPERIMENT_CMD --allow-uncommitted-changes"
+EXPERIMENT_CMD="$EXPERIMENT_CMD --allow-uncommitted-changes 2>&1 | tee /sn640/fuzzerlog/fuzzbench-log.txt"
 
 echo "Running command:"
 echo "$EXPERIMENT_CMD"
@@ -115,4 +115,5 @@ eval "$EXPERIMENT_CMD"
 # Restore benchmark
 # /home/wjk/benchmark-restore.sh || exit 1
 
-# sudo chown -R wjk:wjk /sn640/fuzzerlog/experiment-data/$EXPERIMENT_NAME
+sudo chown -R ubuntu:ubuntu /sn640/fuzzerlog/experiment-data/$EXPERIMENT_NAME
+sudo chown -R ubuntu:ubuntu /sn640/fuzzerlog/report-data/$EXPERIMENT_NAME
