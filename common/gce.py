@@ -14,8 +14,8 @@
 """Module for using the Google Compute Engine (GCE) API."""
 import threading
 
-import google.auth
-from googleapiclient import discovery
+# import google.auth
+# from googleapiclient import discovery
 
 thread_local = threading.local()  # pylint: disable=invalid-name
 NUM_RETRIES = 10

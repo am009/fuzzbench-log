@@ -20,9 +20,9 @@ import sys
 import time
 import traceback
 
-import google.cloud.logging
-from google.cloud.logging_v2.handlers.handlers import CloudLoggingHandler
-from google.cloud import error_reporting
+# import google.cloud.logging
+# from google.cloud.logging_v2.handlers.handlers import CloudLoggingHandler
+# from google.cloud import error_reporting
 
 # Disable this check since we have a bunch of non-constant globals in this file.
 # pylint: disable=invalid-name

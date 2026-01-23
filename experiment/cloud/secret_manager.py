@@ -14,7 +14,7 @@
 """Module for dealing with the Google Cloud secret manager."""
 import posixpath
 
-from google.cloud import secretmanager
+# from google.cloud import secretmanager
 
 
 def get_secret_manager_client():

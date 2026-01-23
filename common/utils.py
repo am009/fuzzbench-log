@@ -27,7 +27,7 @@ assert not (os.getenv('FORCE_NOT_LOCAL') and os.getenv('FORCE_LOCAL')), (
     'understand why this is happening please file a bug.')
 
 # pylint: disable=invalid-name
-_is_local = None
+_is_local = True
 
 if os.getenv('FORCE_NOT_LOCAL'):
     # Allow local users to force is_local to return False. This allows things

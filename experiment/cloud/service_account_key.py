@@ -16,9 +16,9 @@ import sys
 import base64
 import json
 
-import google.api_core.exceptions
-import google.auth
-import googleapiclient.discovery
+# import google.api_core.exceptions
+# import google.auth
+# import googleapiclient.discovery
 
 from common import filesystem
 from common import gcloud
