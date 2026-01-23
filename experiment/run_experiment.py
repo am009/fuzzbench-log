@@ -555,7 +555,7 @@ class LocalDispatcher(BaseDispatcher):
             'rsync -r '
             '"${EXPERIMENT_FILESTORE}/${EXPERIMENT}/input/" ${WORK} && '
             'mkdir ${WORK}/src && '
-            'tar -xvzf ${WORK}/src.tar.gz -C ${WORK}/src && ' +
+            'tar -xzf ${WORK}/src.tar.gz -C ${WORK}/src && ' +
             ('python3 -m pip install debugpy && ' if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else '') +
             'PYTHONPATH=${WORK}/src ' +
             ('python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client ' if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else 'python3 ') +
