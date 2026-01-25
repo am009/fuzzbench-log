@@ -138,6 +138,13 @@ def build_images_for_trials(fuzzers: List[str], benchmarks: List[str],
         trials.extend(fuzzer_benchmark_trials)
     return trials
 
+def fix_measurer_main():
+    logs.info('Starting fixing measurer.')
+    experiment_config_file_path = _get_config_file_path()
+    experiment = Experiment(experiment_config_file_path)
+    create_work_subdirs(['experiment-folders', 'measurement-folders'])
+    measure_manager.measure_main(experiment_config=experiment.config)
+    logs.info('End fixing measurer.')
 
 def dispatcher_main():
     """Do the experiment and report results."""
@@ -208,7 +215,10 @@ def main():
     })
 
     try:
-        dispatcher_main()
+        if os.environ.get('FIX_MEASURE'):
+            fix_measurer_main()
+        else:
+            dispatcher_main()
     except Exception as error:
         logs.error('Error conducting experiment.')
         raise error

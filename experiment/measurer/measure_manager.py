@@ -107,16 +107,15 @@ def _process_init(cores_queue):
 
 def measure_loop(experiment: str,
                  max_total_time: int,
-                 measurers_cpus=None,
-                 runners_cpus=None,
+                 measurers_cpus=4,
+                 runners_cpus=1,
                  region_coverage=False):
     """Continuously measure trials for |experiment|."""
     logger.info('Start measure_loop.')
 
-    pool_args = get_pool_args(measurers_cpus, runners_cpus)
+    # pool_args = get_pool_args(measurers_cpus, runners_cpus)
 
-    with multiprocessing.Pool(
-            *pool_args) as pool, multiprocessing.Manager() as manager:
+    with multiprocessing.Pool(measurers_cpus) as pool, multiprocessing.Manager() as manager:
         set_up_coverage_binaries(pool, experiment)
         # Using Multiprocessing.Queue will fail with a complaint about
         # inheriting queue.
@@ -733,12 +732,8 @@ def set_up_coverage_binary(benchmark):
     archive_name = f'coverage-build-{benchmark}.tar.gz'
     archive_filestore_path = exp_path.filestore(coverage_binaries_dir /
                                                 archive_name)
-    filestore_utils.cp(archive_filestore_path,
-                       str(benchmark_coverage_binary_dir))
-    archive_path = benchmark_coverage_binary_dir / archive_name
-    with tarfile.open(archive_path, 'r:gz') as tar:
+    with tarfile.open(archive_filestore_path, 'r:gz') as tar:
         tar.extractall(benchmark_coverage_binary_dir)
-        os.remove(archive_path)
 
 
 def initialize_logs():
@@ -845,7 +840,7 @@ def measure_manager_loop(experiment: str,
         measurers_cpus = multiprocessing.cpu_count()
         logger.info('Number of measurer CPUs not passed as argument. using %d',
                     measurers_cpus)
-    with multiprocessing.Pool() as pool, multiprocessing.Manager() as manager:
+    with multiprocessing.Pool(measurers_cpus) as pool, multiprocessing.Manager() as manager:
         logger.info('Setting up coverage binaries')
         set_up_coverage_binaries(pool, experiment)
         request_queue = manager.Queue()

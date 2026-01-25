@@ -548,7 +548,7 @@ class LocalDispatcher(BaseDispatcher):
             '--shm-size=2g',
             '--cap-add=SYS_PTRACE',
             '--cap-add=SYS_NICE',
-            f'--name={container_name}',
+            # f'--name={container_name}',
             docker_image_url,
             '/bin/bash',
             '-c',
@@ -559,7 +559,7 @@ class LocalDispatcher(BaseDispatcher):
             ('python3 -m pip install debugpy && ' if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else '') +
             'PYTHONPATH=${WORK}/src ' +
             ('python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client ' if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else 'python3 ') +
-            '${WORK}/src/experiment/dispatcher.py || '
+            ('${WORK}/src/experiment/dispatcher.py || ' if not os.environ.get('FIX_MEASURE') else f'-m experiment.measurer.measure_manager {os.environ.get("FIX_MEASURE")} || ') +
             '/bin/bash'  # Open shell if experiment fails.
         ]
         logs.info('Starting dispatcher with container name: %s', container_name)
