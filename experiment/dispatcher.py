@@ -122,6 +122,9 @@ def build_images_for_trials(fuzzers: List[str], benchmarks: List[str],
     # halt the experiment.
     # builder.build_base_images()
 
+    # install pip packages first
+    builder.buildlib.make(['install-dependencies'])
+
     # Only build fuzzers for benchmarks whose measurers built successfully.
     benchmarks = builder.build_all_measurers(benchmarks)
     build_successes = builder.build_all_fuzzer_benchmarks(fuzzers, benchmarks)
