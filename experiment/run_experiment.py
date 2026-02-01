@@ -559,8 +559,8 @@ class LocalDispatcher(BaseDispatcher):
             ('python3 -m pip install debugpy && ' if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else '') +
             'PYTHONPATH=${WORK}/src ' +
             ('python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client ' if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else 'python3 ') +
-            ('${WORK}/src/experiment/dispatcher.py || ' if not os.environ.get('FIX_MEASURE') else f'-m experiment.measurer.measure_manager {os.environ.get("FIX_MEASURE")} || ') +
-            '/bin/bash'  # Open shell if experiment fails.
+            ('${WORK}/src/experiment/dispatcher.py ' if not os.environ.get('FIX_MEASURE') else f'-m experiment.measurer.measure_manager {os.environ.get("FIX_MEASURE")} ')
+            #  + '|| /bin/bash'  # Open shell if experiment fails.
         ]
         logs.info('Starting dispatcher with container name: %s', container_name)
         return new_process.execute(command, write_to_stdout=True)
