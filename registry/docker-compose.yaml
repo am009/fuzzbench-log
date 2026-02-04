@@ -1,0 +1,20 @@
+# https://distribution.github.io/distribution/about/configuration/
+# https://distribution.github.io/distribution/
+services:
+  registry:
+    container_name: registry
+    image: registry:3
+    restart: always
+    network_mode: bridge
+    ports:
+      - "5000:5000"
+    environment:
+      - "REGISTRY_AUTH_HTPASSWD_REALM=Registry"
+      - "REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd"
+      - "REGISTRY_STORAGE_DELETE_ENABLED=true"
+    volumes:
+      - "./auth:/auth"
+      - "fuzzbench-registry-data:/var/lib/registry"
+volumes:
+    fuzzbench-registry-data:
+        external: false
