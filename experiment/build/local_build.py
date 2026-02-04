@@ -15,6 +15,7 @@
 """Module for building things on Google Cloud Build for use in trials."""
 
 import os
+import subprocess
 from typing import Tuple
 
 from common import benchmark_utils
@@ -25,6 +26,18 @@ from common import new_process
 from common import utils
 
 logger = logs.Logger()  # pylint: disable=invalid-name
+
+
+def _pull_image(image_url):
+    """Pull docker image from registry."""
+    logger.info('Pulling image: %s', image_url)
+    result = subprocess.run(['docker', 'pull', image_url],
+                            capture_output=True,
+                            text=True)
+    if result.returncode != 0:
+        logger.error('Failed to pull image %s: %s', image_url, result.stderr)
+        raise subprocess.CalledProcessError(result.returncode, 'docker pull')
+    logger.info('Successfully pulled image: %s', image_url)
 
 
 def make(targets):
@@ -55,10 +68,21 @@ def make_shared_coverage_binaries_dir():
 
 def build_coverage(benchmark):
     """Build (locally) coverage image for benchmark."""
-    image_name = f'build-coverage-{benchmark}'
-    result = make([image_name])
-    if result.retcode:
-        return result
+    docker_registry = environment.get('DOCKER_REGISTRY')
+    builder_image_url = benchmark_utils.get_builder_image_url(
+        benchmark, 'coverage', docker_registry)
+
+    if os.environ.get('FUZZBENCH_NO_BUILD'):
+        # Pull the coverage image instead of building
+        _pull_image(builder_image_url)
+        # Create a fake successful result
+        result = type('Result', (), {'retcode': 0})()
+    else:
+        image_name = f'build-coverage-{benchmark}'
+        result = make([image_name])
+        if result.retcode:
+            return result
+
     make_shared_coverage_binaries_dir()
     copy_coverage_binaries(benchmark)
     return result
@@ -84,5 +108,13 @@ def copy_coverage_binaries(benchmark):
 
 def build_fuzzer_benchmark(fuzzer: str, benchmark: str) -> bool:
     """Builds |benchmark| for |fuzzer|."""
-    image_name = f'build-{fuzzer}-{benchmark}'
-    make([image_name])
+    if os.environ.get('FUZZBENCH_NO_BUILD'):
+        # Pull the runner image instead of building
+        docker_registry = environment.get('DOCKER_REGISTRY')
+        experiment = experiment_utils.get_experiment_name()
+        runner_image_url = benchmark_utils.get_runner_image_url(
+            experiment, benchmark, fuzzer, docker_registry)
+        _pull_image(runner_image_url)
+    else:
+        image_name = f'build-{fuzzer}-{benchmark}'
+        make([image_name])

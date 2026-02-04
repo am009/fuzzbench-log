@@ -533,6 +533,11 @@ class LocalDispatcher(BaseDispatcher):
             '-e',
             set_worker_pool_name_arg,
         ]
+        if os.environ.get('FUZZBENCH_NO_BUILD'):
+            environment_args += [
+                '-e',
+                'FUZZBENCH_NO_BUILD=1',
+            ]
         command = [
             'docker',
             'run',
