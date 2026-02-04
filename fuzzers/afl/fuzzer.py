@@ -85,8 +85,8 @@ def prepare_fuzz_environment(input_corpus):
 
 
 def check_skip_det_compatible(additional_flags):
-    """ Checks if additional flags are compatible with '-d' option"""
-    # AFL refuses to take in '-d' with '-M' or '-S' options for parallel mode.
+    """ Checks if additional flags are compatible with '-z' option"""
+    # AFL refuses to take in '-z' with '-M' or '-S' options for parallel mode.
     # (cf. https://github.com/google/AFL/blob/8da80951/afl-fuzz.c#L7477)
     if '-M' in additional_flags or '-S' in additional_flags:
         return False
@@ -113,10 +113,10 @@ def run_afl_fuzz(input_corpus,
         '-t',
         '1000+',  # Use same default 1 sec timeout, but add '+' to skip hangs.
     ]
-    # Use '-d' to skip deterministic mode, as long as it it compatible with
+    # Use '-z' to skip deterministic mode, as long as it it compatible with
     # additional flags.
     if not additional_flags or check_skip_det_compatible(additional_flags):
-        command.append('-d')
+        command.append('-z')
     if additional_flags:
         command.extend(additional_flags)
     dictionary_path = utils.get_dictionary_path(target_binary)
