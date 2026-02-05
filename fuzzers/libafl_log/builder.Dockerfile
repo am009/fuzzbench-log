@@ -31,18 +31,14 @@ RUN apt-get update && \
         libglib2.0-dev libpixman-1-dev python3-setuptools unzip \
         apt-utils apt-transport-https ca-certificates joe curl jq wget && \
     wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 17 && \
-    wget $(wget -q -O - https://api.github.com/repos/am009/fuzzbench-log/releases/latest  |  jq -r '.assets[] | select(.name | contains ("libfuzzerlog.so")) | .browser_download_url') -O /usr/local/lib/libfuzzerlog.so && \
+    wget https://github.com/am009/fuzzbench-log/releases/download/20260205/libfuzzerlog.so -O /usr/local/lib/libfuzzerlog.so && \
     chmod 777 /usr/local/lib/libfuzzerlog.so
 ENV FUZZERLOGLIB=/usr/local/lib/libfuzzerlog.so
 
 RUN wget https://gist.githubusercontent.com/tokatoka/26f4ba95991c6e33139999976332aa8e/raw/698ac2087d58ce5c7a6ad59adce58dbfdc32bd46/createAliases.sh && chmod u+x ./createAliases.sh && ./createAliases.sh 
 
 # Download libafl.
-RUN git clone -b fuzzerloglib https://github.com/am009/LibAFL-log.git /libafl
-
-# Checkout a current commit
-RUN cd /libafl && git pull && git checkout 5f509d10e718a194fcac5af05c69856438f1a833 || true
-# Note that due a nightly bug it is currently fixed to a known version on top!
+RUN git clone -b fuzzerloglib https://github.com/am009/LibAFL-log.git /libafl && cd /libafl && git checkout 5f509d10e718a194fcac5af05c69856438f1a833
 
 # Compile libafl.
 RUN cd /libafl && \

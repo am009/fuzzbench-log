@@ -31,10 +31,7 @@ RUN apt-get update && \
         apt-utils apt-transport-https ca-certificates joe curl
 
 # Download libafl.
-RUN git clone https://github.com/AFLplusplus/LibAFL /libafl
-
-# Checkout a current commit
-RUN cd /libafl && git pull && git checkout bd49bdf4f64a50349d803646fb2afa9b8b104fa5
+RUN git clone https://github.com/AFLplusplus/LibAFL /libafl && cd /libafl && git checkout bd49bdf4f64a50349d803646fb2afa9b8b104fa5
 
 # Compile libafl.
 RUN cd /libafl && \

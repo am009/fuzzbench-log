@@ -25,5 +25,5 @@ ENV AFL_TESTCACHE_SIZE=2
 
 RUN apt-get update && \
     apt-get install jq wget -y && \
-    wget $(wget -q -O - https://api.github.com/repos/am009/fuzzbench-log/releases/latest  |  jq -r '.assets[] | select(.name | contains ("libfuzzerlog.so")) | .browser_download_url') -O /usr/local/lib/libfuzzerlog.so && \
+    wget https://github.com/am009/fuzzbench-log/releases/download/20260205/libfuzzerlog.so -O /usr/local/lib/libfuzzerlog.so && \
     chmod 777 /usr/local/lib/libfuzzerlog.so
