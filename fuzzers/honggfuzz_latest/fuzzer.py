@@ -47,6 +47,8 @@ def fuzz(input_corpus, output_corpus, target_binary):
     print('[fuzz] Running target with honggfuzz')
     command = [
         './honggfuzz',
+        '--threads',
+        '1',
         '--persistent',
         '--rlimit_rss',
         '2048',
