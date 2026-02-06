@@ -98,6 +98,9 @@ def _get_makefile_run_template(image):
         else:
             section += os.path.join(
                 BASE_TAG, image['tag'].replace('runners/', 'builders/', 1))
+        
+        if run_type == 'test-run':
+            section += ' --init-file /src/docker/benchmark-runner/startup-runner.sh'
         section += '\n\n'
     return section
 
