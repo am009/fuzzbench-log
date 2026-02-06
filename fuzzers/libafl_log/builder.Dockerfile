@@ -29,7 +29,7 @@ RUN apt-get update && \
         lsb-release wget software-properties-common gnupg && \
     apt-get install -y wget libstdc++5 libtool-bin automake flex bison \
         libglib2.0-dev libpixman-1-dev python3-setuptools unzip \
-        apt-utils apt-transport-https ca-certificates joe curl jq wget && \
+        apt-utils apt-transport-https ca-certificates joe curl nano wget && \
     wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 17 && \
     wget https://github.com/am009/fuzzbench-log/releases/download/20260205/libfuzzerlog.so -O /usr/local/lib/libfuzzerlog.so && \
     chmod 777 /usr/local/lib/libfuzzerlog.so
