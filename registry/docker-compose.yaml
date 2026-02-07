@@ -12,6 +12,9 @@ services:
       - "REGISTRY_AUTH_HTPASSWD_REALM=Registry"
       - "REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd"
       - "REGISTRY_STORAGE_DELETE_ENABLED=true"
+      - "OTEL_TRACES_EXPORTER=none"
+      - "REGISTRY_HTTP_HOST=registry.example.com"
+      - "REGISTRY_HTTP_RELATIVEURLS=true"
     volumes:
       - "./auth:/auth"
       - "fuzzbench-registry-data:/var/lib/registry"
