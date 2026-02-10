@@ -35,10 +35,9 @@ RUN apt-get update && \
         libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev
 
 # Download afl++.
-RUN git clone -b fuzzerloglib https://github.com/am009/AFLplusplus-log /afl && \
+RUN git clone -b 260114-fuzzerloglib https://github.com/am009/AFLplusplus-log /afl && \
     cd /afl && \
-    git checkout bc81e1fdced25c81cf91c16f1a2b24e432136fa8 || \
-    true
+    git checkout 05e4cf274dcfba17435cb9e6ad1e98a695baead4
 
 # ENV DEBUG=1
 
