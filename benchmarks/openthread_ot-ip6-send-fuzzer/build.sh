@@ -13,4 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+sed -i 's/-GNinja/-GNinja -DOT_COMPILE_WARNING_AS_ERROR=OFF -DMBEDTLS_FATAL_WARNINGS=OFF/' tests/fuzz/oss-fuzz-build
 bash tests/fuzz/oss-fuzz-build

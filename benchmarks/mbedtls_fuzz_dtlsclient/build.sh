@@ -15,13 +15,14 @@
 #
 ################################################################################
 
+rm /usr/local/bin/python3.11 || true
 pip3 install -r $SRC/mbedtls/scripts/basic.requirements.txt
 
 # build project
 perl scripts/config.pl set MBEDTLS_PLATFORM_TIME_ALT
 mkdir build
 cd build
-cmake -DENABLE_TESTING=OFF ..
+cmake -DENABLE_TESTING=OFF -DMBEDTLS_FATAL_WARNINGS=OFF ..
 # build including fuzzers
 make -j$(nproc) all
 cp programs/fuzz/fuzz_* $OUT/
