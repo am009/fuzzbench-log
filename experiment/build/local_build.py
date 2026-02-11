@@ -31,11 +31,9 @@ logger = logs.Logger()  # pylint: disable=invalid-name
 def _pull_image(image_url):
     """Pull docker image from registry."""
     logger.info('Pulling image: %s', image_url)
-    result = subprocess.run(['docker', 'pull', image_url],
-                            capture_output=True,
-                            text=True)
+    result = subprocess.run(['docker', 'pull', image_url])
     if result.returncode != 0:
-        logger.error('Failed to pull image %s: %s', image_url, result.stderr)
+        logger.error('Failed to pull image %s', image_url)
         raise subprocess.CalledProcessError(result.returncode, 'docker pull')
     logger.info('Successfully pulled image: %s', image_url)
 

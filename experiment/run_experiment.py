@@ -541,6 +541,10 @@ class LocalDispatcher(BaseDispatcher):
         registry_user = os.environ.get('FUZZBENCH_REGISTRY_USER')
         registry_password = os.environ.get('FUZZBENCH_REGISTRY_PASSWORD')
         if registry_user and registry_password:
+            if os.environ.get('FUZZBENCH_NO_BUILD'):
+                cmd = f'docker login {docker_registry} --username "{registry_user}" --password "{registry_password}"'
+                print(cmd)
+                assert os.system(cmd) == 0
             environment_args += [
                 '-e',
                 f'FUZZBENCH_REGISTRY_USER={registry_user}',
@@ -571,7 +575,7 @@ class LocalDispatcher(BaseDispatcher):
             'mkdir ${WORK}/src && '
             'tar -xzf ${WORK}/src.tar.gz -C ${WORK}/src && '
             'if [ -n "${FUZZBENCH_REGISTRY_USER}" ] && [ -n "${FUZZBENCH_REGISTRY_PASSWORD}" ]; then '
-            'echo "${FUZZBENCH_REGISTRY_PASSWORD}" | docker login -u "${FUZZBENCH_REGISTRY_USER}" --password-stdin "${DOCKER_REGISTRY}"; fi && ' +
+            'echo "${FUZZBENCH_REGISTRY_PASSWORD}" | docker login ${DOCKER_REGISTRY} --username "${FUZZBENCH_REGISTRY_USER}" --password "${FUZZBENCH_REGISTRY_PASSWORD}"; fi && ' +
             ('python3 -m pip install debugpy && ' if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else '') +
             'PYTHONPATH=${WORK}/src ' +
             ('python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client ' if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else 'python3 ') +

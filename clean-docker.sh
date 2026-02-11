@@ -5,7 +5,8 @@ docker ps -a | grep '"/bin/sh -c'| awk '{print $1}' | xargs -I {} docker rm {}
 docker ps -a | grep '"/bin/bash -c' | awk '{print $1}' | xargs -I {} docker rm {}
 
 # 根据正则过滤强制删除镜像
-docker images -a -q "gcr.io/fuzzbench/*/*/*" | xargs -I {} docker rmi -f {};
+# docker images -a -q "gcr.io/fuzzbench/*/*/*" | xargs -I {} docker rmi -f {};
+docker image ls | grep fuzzbench | awk '{print $1}' | xargs -I {} docker rmi {};
 # 删除没有名字的镜像
 docker images -q -f dangling=true | xargs -I {} docker rmi -f {};
 
