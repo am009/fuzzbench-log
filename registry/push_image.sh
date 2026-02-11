@@ -5,6 +5,26 @@ fuzzers="honggfuzz_latest honggfuzz_log honggfuzz_no_bin honggfuzz_sched_no_shor
 benchmarks="libpng_libpng_read_fuzzer libxml2_xml libxslt_xpath mbedtls_fuzz_dtlsclient openthread_ot-ip6-send-fuzzer stb_stbi_read_fuzzer systemd_fuzz-link-parser vorbis_decode_fuzzer woff2_convert_woff2ttf_fuzzer zlib_zlib_uncompress_fuzzer"
 REGISTRY="registry.example.com"
 
+SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+${SCRIPTPATH}/list-images.sh http://registry.example.com > images.txt
+
+has_image() {
+    # 检查是否提供了参数
+    if [ $# -eq 0 ]; then
+        echo "错误: 请提供Docker镜像名称作为参数"
+        echo "用法: docker_push <镜像名>"
+        return 1
+    fi
+
+    original_image=$1
+    image_suffix="${original_image/gcr.io\//}"
+    if grep $image_suffix images.txt > /dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 docker_push() {
     # 检查是否提供了参数
     if [ $# -eq 0 ]; then
@@ -49,20 +69,28 @@ docker_push() {
     echo "原始镜像: $original_image 已推送到: $target_image"
 }
 
-# # 1. build and push dispatcher image
-# make dispatcher-image
-# docker_push gcr.io/fuzzbench/dispatcher-image
+set -e
+
+# 1. build and push dispatcher image
+if ! has_image gcr.io/fuzzbench/dispatcher-image; then
+make dispatcher-image
+docker_push gcr.io/fuzzbench/dispatcher-image
+fi
 
 # 2. Push measurer
 for benchmark in $benchmarks; do
+if ! has_image gcr.io/fuzzbench/builders/coverage/$benchmark; then
     make build-coverage-$benchmark || make build-coverage-$benchmark
     docker_push gcr.io/fuzzbench/builders/coverage/$benchmark
+fi
 done
 
-# # 3. push runner
+# 3. push runner
 for fuzzer in $fuzzers; do
     for benchmark in $benchmarks; do
+if ! has_image gcr.io/fuzzbench/runners/$fuzzer/$benchmark; then
         make .$fuzzer-$benchmark-runner || make .$fuzzer-$benchmark-runner
         docker_push gcr.io/fuzzbench/runners/$fuzzer/$benchmark
+fi
     done
 done
