@@ -40,16 +40,16 @@ def prepare_fuzz_environment(input_corpus):
 
 def build():  # pylint: disable=too-many-branches,too-many-statements
     """Build benchmark."""
-    os.environ['CC'] = ('/libafl/fuzzers/fuzzbench/fuzzbench'
+    os.environ['CC'] = ('/libafl/fuzzers/inprocess/fuzzbench'
                         '/target/release-fuzzbench/libafl_cc')
-    os.environ['CXX'] = ('/libafl/fuzzers/fuzzbench/fuzzbench'
+    os.environ['CXX'] = ('/libafl/fuzzers/inprocess/fuzzbench'
                          '/target/release-fuzzbench/libafl_cxx')
 
     os.environ['ASAN_OPTIONS'] = 'abort_on_error=0:allocator_may_return_null=1'
     os.environ['UBSAN_OPTIONS'] = 'abort_on_error=0'
 
     cflags = ['--libafl']
-    cxxflags = ['--libafl', '--std=c++14']
+    cxxflags = ['--libafl', '--std=c++14', '-L/usr/local/lib/x86_64-unknown-linux-gnu']
     utils.append_flags('CFLAGS', cflags)
     utils.append_flags('CXXFLAGS', cxxflags)
     utils.append_flags('LDFLAGS', cflags)

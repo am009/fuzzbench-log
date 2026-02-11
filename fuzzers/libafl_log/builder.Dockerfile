@@ -18,36 +18,36 @@ FROM $parent_image
 # Uninstall old Rust & Install the latest one.
 RUN if which rustup; then rustup self uninstall -y; fi && \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > /rustup.sh && \
-    sh /rustup.sh --default-toolchain nightly-2024-08-12 -y && \
+    sh /rustup.sh --default-toolchain 1.92.0 -y && \
     rm /rustup.sh
 
 # Install dependencies.
 RUN apt-get update && \
-    apt-get remove -y llvm-10 && \
     apt-get install -y \
         build-essential \
         lsb-release wget software-properties-common gnupg && \
     apt-get install -y wget libstdc++5 libtool-bin automake flex bison \
         libglib2.0-dev libpixman-1-dev python3-setuptools unzip \
-        apt-utils apt-transport-https ca-certificates joe curl nano wget && \
-    wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 17 && \
-    wget https://github.com/am009/fuzzbench-log/releases/download/20260205/libfuzzerlog.so -O /usr/local/lib/libfuzzerlog.so && \
-    chmod 777 /usr/local/lib/libfuzzerlog.so
+        apt-utils apt-transport-https ca-certificates joe curl
+
 ENV FUZZERLOGLIB=/usr/local/lib/libfuzzerlog.so
 
-RUN wget https://gist.githubusercontent.com/tokatoka/26f4ba95991c6e33139999976332aa8e/raw/698ac2087d58ce5c7a6ad59adce58dbfdc32bd46/createAliases.sh && chmod u+x ./createAliases.sh && ./createAliases.sh 
+RUN apt-get update && \
+    apt-get install nano wget -y && \
+    wget https://github.com/am009/fuzzbench-log/releases/download/20260205/libfuzzerlog.so -O /usr/local/lib/libfuzzerlog.so && \
+    chmod 777 /usr/local/lib/libfuzzerlog.so
 
 # Download libafl.
-RUN git clone -b fuzzerloglib https://github.com/am009/LibAFL-log.git /libafl && cd /libafl && git checkout 5f509d10e718a194fcac5af05c69856438f1a833
+RUN git clone -b fuzzerloglib https://github.com/am009/LibAFL /libafl && cd /libafl && git checkout 78b01b4770031e7a6c98fbb6d5191b6f86915aab
 
 # Compile libafl.
 RUN cd /libafl && \
     unset CFLAGS CXXFLAGS && \
     export LIBAFL_EDGES_MAP_SIZE=2621440 && \
-    cd ./fuzzers/fuzzbench/fuzzbench && \
+    cd ./fuzzers/inprocess/fuzzbench && \
     PATH="/root/.cargo/bin/:$PATH" cargo build --profile release-fuzzbench --features no_link_main
 
 # Auxiliary weak references.
-RUN cd /libafl/fuzzers/fuzzbench/fuzzbench && \
+RUN cd /libafl/fuzzers/inprocess/fuzzbench && \
     clang -c stub_rt.c && \
     ar r /stub_rt.a stub_rt.o
