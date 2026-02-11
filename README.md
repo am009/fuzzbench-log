@@ -7,9 +7,8 @@ This fork provides a special fuzzer called aflplusplus_blockdom, which extract b
 1. build base-image and dispatcher-image locally first.
 ```
 make base-image
-make dispatcher-image
 make worker
-
+docker pull gcr.io/oss-fuzz-base/base-builder@sha256:cf46c8fff9b892152539bf6dc1d7301dcc0b766baa5cdf4ca357f9e0eafb3d04
 # Update mirror for base-builder
 docker build -t gcr.io/oss-fuzz-base/base-builder-new - << 'EOF'
 FROM gcr.io/oss-fuzz-base/base-builder
@@ -20,6 +19,8 @@ EOF
 docker rmi gcr.io/oss-fuzz-base/base-builder 2>/dev/null || true
 docker tag gcr.io/oss-fuzz-base/base-builder-new gcr.io/oss-fuzz-base/base-builder
 docker rmi gcr.io/oss-fuzz-base/base-builder-new
+
+make dispatcher-image
 ```
 
 
