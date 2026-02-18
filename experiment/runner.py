@@ -301,12 +301,14 @@ class TrialRunner:  # pylint: disable=too-many-instance-attributes
         # Sync initial corpus before fuzzing begins.
         self.do_sync()
 
+        fuzz_thread = threading.Thread(target=run_fuzzer, args=args)
+        fuzz_thread.start()
+
+        time.sleep(1)
         # Record absolute start time after initial sync so that all subsequent
         # sync points are calculated relative to this fixed reference.
         self.start_time = time.time()
 
-        fuzz_thread = threading.Thread(target=run_fuzzer, args=args)
-        fuzz_thread.start()
         if environment.get('FUZZ_OUTSIDE_EXPERIMENT'):
             # Hack so that the fuzz_thread has some time to fail if something is
             # wrong. Without this we will sleep for a long time before checking
@@ -318,8 +320,9 @@ class TrialRunner:  # pylint: disable=too-many-instance-attributes
             self.sleep_until_next_sync()
             self.do_sync()
 
-        logs.info('Doing final sync.')
-        self.do_sync()
+        # logs.info('Doing final sync.')
+        # self.cycle += 1
+        # self.do_sync()
         fuzz_thread.join()
 
     def sleep_until_next_sync(self):

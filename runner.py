@@ -314,6 +314,7 @@ class TrialRunner:  # pylint: disable=too-many-instance-attributes
             self.do_sync()
 
         logs.info('Doing final sync.')
+        self.cycle += 1
         self.do_sync()
         fuzz_thread.join()
 
