@@ -33,11 +33,10 @@ RUN apt-get update && \
         ninja-build \
         gcc-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-plugin-dev \
         lsb-release wget software-properties-common gpg \
-        libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev \
+        libstdc++-$(gcc --version|head -n1|sed 's/\..*//'|sed 's/.* //')-dev libc++abi-dev \
         && bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" bash 15 \
-        && ln -s /usr/local/lib/libc++.a /usr/lib/libc++.a \
-        && ln -s /usr/local/lib/libc++abi.a /usr/lib/libc++abi.a \
-        && ln -s /usr/local/lib/libc++experimental.a /usr/lib/libc++experimental.a \
+        && apt-get install -y libc++-15-dev libc++1-15 libc++abi1-15 \
+        && ln -s /usr/lib/x86_64-linux-gnu/libc++abi.so.1.0 /usr/lib/x86_64-linux-gnu/libc++abi.so \
         && rm /usr/local/bin/clang && ln -s /usr/bin/clang-15 /usr/bin/clang \
         && rm /usr/local/bin/clang++ && ln -s /usr/bin/clang++-15 /usr/bin/clang++ \
         && rm /usr/local/bin/llvm-config && ln -s /usr/bin/llvm-config-15 /usr/bin/llvm-config \
