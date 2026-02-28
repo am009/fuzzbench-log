@@ -8,6 +8,7 @@ set -e
 EXPERIMENT_NAME=""
 BENCHMARKS=""
 FUZZERS=""
+TRIALS=""
 
 # Function to show usage
 usage() {
@@ -17,6 +18,7 @@ usage() {
     echo "  -n, --name       Experiment name (required)"
     echo "  -b, --benchmarks Space-separated list of benchmarks (required)"
     echo "  -f, --fuzzers    Space-separated list of fuzzers (required)"
+    echo "  -t, --trials     Number of trials (optional, updates fuzzbench.yaml)"
     echo "  -h, --help       Show this help message"
     echo ""
     echo "Examples:"
@@ -38,6 +40,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -f|--fuzzers)
             FUZZERS="$2"
+            shift 2
+            ;;
+        -t|--trials)
+            TRIALS="$2"
             shift 2
             ;;
         -h|--help)
@@ -86,7 +92,15 @@ echo "Experiment Configuration:"
 echo "  Name: $EXPERIMENT_NAME"
 echo "  Benchmarks: ${BENCHMARK_ARRAY[*]}"
 echo "  Fuzzers: ${FUZZER_ARRAY[*]}"
+if [[ -n "$TRIALS" ]]; then
+    echo "  Trials: $TRIALS"
+fi
 echo ""
+
+# Update trials in fuzzbench.yaml if specified
+if [[ -n "$TRIALS" ]]; then
+    sed -i "s/^trials: [0-9]\+/trials: $TRIALS/" "$SCRIPTPATH/fuzzbench.yaml"
+fi
 
 # Wait for docker and prepare benchmark
 # /sn640/fuzzerlog/wait-docker.sh || exit 1
