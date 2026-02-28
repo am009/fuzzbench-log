@@ -74,7 +74,7 @@ def _get_makefile_run_template(image):
             section += '\t--entrypoint "/bin/bash" \\\n\t-it --rm '
         if run_type == 'debug-builder':
             section += '\t-e DEBUG_BUILDER=1 \\\n'
-            section += '\t--entrypoint "/bin/bash" \\\n\t-it '
+            section += '\t--entrypoint "/bin/bash" \\\n\t-it --rm '
         elif run_type == 'debug':
             section += '\t--entrypoint "/bin/bash" \\\n\t-it '
         elif run_type == 'repro-bugs':
@@ -101,6 +101,8 @@ def _get_makefile_run_template(image):
         
         if run_type == 'test-run':
             section += ' --init-file /src/docker/benchmark-runner/startup-runner.sh'
+        elif run_type == 'debug-builder':
+            section += ' --init-file /usr/bin/fuzzer_build'
         section += '\n\n'
     return section
 
