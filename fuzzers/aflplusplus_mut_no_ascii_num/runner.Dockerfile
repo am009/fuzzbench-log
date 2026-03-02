@@ -25,7 +25,7 @@ ENV AFL_TESTCACHE_SIZE=2
 
 RUN apt-get update && \
     apt-get install nano wget -y && \
-    wget https://github.com/am009/fuzzbench-log/releases/download/20260205/libfuzzerlog.so -O /usr/local/lib/libfuzzerlog.so && \
+    wget https://github.com/am009/fuzzbench-log/releases/download/20260302/libfuzzerlog.so -O /usr/local/lib/libfuzzerlog.so && \
     chmod 777 /usr/local/lib/libfuzzerlog.so
 
 ENV AFL_DISABLE_MUTATOR_ASCII_NUM=1
