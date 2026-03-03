@@ -12,20 +12,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Creates a dispatcher VM in GCP and sends it all the files and configurations
-it needs to begin an experiment."""
+"""Directly manages experiment: builds images, launches runner containers with
+cpuset scheduling, and waits for all trials to complete."""
 
 import argparse
+import datetime
+import multiprocessing
 import os
 import re
 import subprocess
 import sys
-import tarfile
-import tempfile
+import time
 from collections import namedtuple
 from typing import Dict, List, Optional, Union
 
-import jinja2
 import yaml
 
 from common import benchmark_utils
@@ -33,30 +33,15 @@ from common import experiment_utils
 from common import filestore_utils
 from common import filesystem
 from common import fuzzer_utils
-from common import gcloud
 from common import gsutil
 from common import logs
-from common import new_process
 from common import utils
 from common import yaml_utils
 
 BENCHMARKS_DIR = os.path.join(utils.ROOT_DIR, 'benchmarks')
 FUZZERS_DIR = os.path.join(utils.ROOT_DIR, 'fuzzers')
-RESOURCES_DIR = os.path.join(utils.ROOT_DIR, 'experiment', 'resources')
 FUZZER_NAME_REGEX = re.compile(r'^[a-z][a-z0-9_]+$')
 EXPERIMENT_CONFIG_REGEX = re.compile(r'^[a-z0-9-]{0,30}$')
-FILTER_SOURCE_REGEX = re.compile(r'('
-                                 r'^\.git/|'
-                                 r'^\.pytype/|'
-                                 r'^\.venv/|'
-                                 r'^.*\.pyc$|'
-                                 r'^__pycache__/|'
-                                 r'.*~$|'
-                                 r'\#*\#$|'
-                                 r'\.pytest_cache/|'
-                                 r'.*/test_data/|'
-                                 r'^docker/generated.mk$|'
-                                 r'^docs/)')
 _OSS_FUZZ_CORPUS_BACKUP_URL_FORMAT = (
     'gs://{project}-backup.clusterfuzz-external.appspot.com/corpus/'
     'libFuzzer/{fuzz_target}/public.zip')
@@ -368,24 +353,204 @@ def start_experiment_from_full_config(config):
 
     set_up_experiment_config_file(config)
 
-    # Make sure we can connect to database.
     local_experiment = config.get('local_experiment', False)
     if not local_experiment:
-        if 'POSTGRES_PASSWORD' not in os.environ:
-            raise ValidationError(
-                'Must set POSTGRES_PASSWORD environment variable.')
-        gcloud.set_default_project(config['cloud_project'])
+        raise ValidationError(
+            'This refactored run_experiment.py only supports local experiments.')
 
-    start_dispatcher(config, experiment_utils.CONFIG_DIR)
+    # 1. Set environment variables (before importing builder which checks them)
+    setup_environment(config)
+
+    # 2. Initialize SQLite database
+    multiprocessing.set_start_method('spawn')
+    from database import models
+    from database import utils as db_utils
+    db_utils.initialize()
+    models.Base.metadata.create_all(db_utils.engine)
+
+    # 3. Create Experiment record in DB
+    _initialize_experiment_in_db(config, db_utils, models)
+
+    # 4. Build images + create Trial records
+    from experiment.build import builder
+    from experiment.dispatcher import build_images_for_trials
+    trials = build_images_for_trials(
+        config['fuzzers'], config['benchmarks'],
+        config['trials'], config.get('preemptible_runners', False))
+    _initialize_trials_in_db(trials, db_utils)
+
+    # 5. Create work subdirectories
+    work_dir = experiment_utils.get_work_dir()
+    for subdir in ['experiment-folders', 'measurement-folders']:
+        subdir_path = os.path.join(work_dir, subdir)
+        if not os.path.exists(subdir_path):
+            os.makedirs(subdir_path)
+
+    # 6. Copy resources (config, oss-fuzz corpus, custom seed corpus)
+    copy_resources_to_bucket(experiment_utils.CONFIG_DIR, config)
+
+    # 7. Launch all runners and wait for completion
+    run_all_trials(config, trials, db_utils)
+
+    # 8. Record experiment end time
+    _record_experiment_time_ended(config['experiment'], db_utils, models)
+
+    logs.info('Experiment runners completed.')
 
 
-def start_dispatcher(config: Dict, config_dir: str):
-    """Start the dispatcher instance and run the dispatcher code on it."""
-    dispatcher = get_dispatcher(config)
-    # Is dispatcher code being run manually (useful for debugging)?
-    copy_resources_to_bucket(config_dir, config)
-    if not os.getenv('MANUAL_EXPERIMENT'):
-        dispatcher.start()
+def setup_environment(config):
+    """Set environment variables needed by the experiment infrastructure."""
+    experiment_filestore_path = os.path.abspath(config['experiment_filestore'])
+    filesystem.create_directory(experiment_filestore_path)
+
+    os.environ['LOCAL_EXPERIMENT'] = 'True'
+    os.environ['FORCE_LOCAL'] = 'True'
+    os.environ['EXPERIMENT'] = config['experiment']
+    os.environ['EXPERIMENT_FILESTORE'] = config['experiment_filestore']
+    os.environ['REPORT_FILESTORE'] = config['report_filestore']
+    os.environ['SNAPSHOT_PERIOD'] = str(config['snapshot_period'])
+    os.environ['DOCKER_REGISTRY'] = config['docker_registry']
+    os.environ['CONCURRENT_BUILDS'] = str(config['concurrent_builds'])
+    os.environ['WORKER_POOL_NAME'] = config.get('worker_pool_name', '')
+
+    # SQL database URL for local SQLite
+    sql_db_url = (
+        f'sqlite:///{os.path.join(experiment_filestore_path, "local.db")}'
+        '?check_same_thread=False')
+    os.environ['SQL_DATABASE_URL'] = sql_db_url
+
+    # WORK directory = experiment_filestore/experiment_name
+    work_dir = os.path.join(experiment_filestore_path, config['experiment'])
+    os.environ['WORK'] = work_dir
+    filesystem.create_directory(work_dir)
+
+    # Docker registry login if credentials are set
+    docker_registry = config['docker_registry']
+    registry_user = os.environ.get('FUZZBENCH_REGISTRY_USER')
+    registry_password = os.environ.get('FUZZBENCH_REGISTRY_PASSWORD')
+    if registry_user and registry_password:
+        cmd = (f'docker login {docker_registry} '
+               f'--username "{registry_user}" '
+               f'--password "{registry_password}"')
+        logs.info('Logging into docker registry: %s', docker_registry)
+        os.system(cmd)
+
+
+def _initialize_experiment_in_db(config, db_utils, models):
+    """Create the experiment entity in the database."""
+    with db_utils.session_scope() as session:
+        experiment_exists = session.query(models.Experiment).filter(
+            models.Experiment.name == config['experiment']).first()
+    if experiment_exists:
+        raise Exception('Experiment already exists in database.')
+
+    db_utils.add_all([
+        db_utils.get_or_create(
+            models.Experiment,
+            name=config['experiment'],
+            git_hash=config['git_hash'],
+            private=config.get('private', True),
+            experiment_filestore=config['experiment_filestore'],
+            description=config['description']),
+    ])
+
+
+def _initialize_trials_in_db(trials, db_utils):
+    """Bulk insert trial records into the database."""
+    db_utils.bulk_save(trials)
+
+
+def _record_experiment_time_ended(experiment_name, db_utils, models):
+    """Record experiment end time in the database."""
+    with db_utils.session_scope() as session:
+        experiment = session.query(models.Experiment).filter(
+            models.Experiment.name == experiment_name).one()
+    experiment.time_ended = datetime.datetime.utcnow()
+    db_utils.add_all([experiment])
+
+
+def run_all_trials(config, trials, db_utils):
+    """Launch all trial runners with cpuset-based scheduling and wait for
+    completion."""
+    runners_cpus = config.get('runners_cpus')
+    runner_num_cpu_cores = config['runner_num_cpu_cores']
+
+    # Calculate cpuset allocation (mirrors scheduler.py logic)
+    core_allocation = None
+    if runners_cpus is not None:
+        processes = runners_cpus // runner_num_cpu_cores
+        logs.info('Scheduling runners from core 0 to %d (%d slots).',
+                  runner_num_cpu_cores * processes - 1, processes)
+        core_allocation = {}
+        for cpu in range(0, runner_num_cpu_cores * processes,
+                         runner_num_cpu_cores):
+            core_allocation[f'{cpu}-{cpu + runner_num_cpu_cores - 1}'] = None
+
+    pending = list(trials)
+    running = {}  # cpuset_or_id -> (trial, subprocess.Popen)
+
+    logs.info('Starting %d trials.', len(pending))
+
+    while pending or running:
+        # Check for completed runner processes
+        for key in list(running):
+            trial, proc = running[key]
+            if proc.poll() is not None:
+                trial.time_ended = datetime.datetime.utcnow()
+                db_utils.add_all([trial])
+                del running[key]
+                if core_allocation is not None:
+                    core_allocation[key] = None
+                logs.info('Trial %d finished (exit code %d). '
+                          'Running: %d, Pending: %d.',
+                          trial.id, proc.returncode,
+                          len(running), len(pending))
+
+        # Determine free slots
+        if core_allocation is not None:
+            free = [k for k, v in core_allocation.items() if v is None]
+        else:
+            free = [None] * len(pending)
+
+        # Launch new trials on free slots
+        while pending and free:
+            trial = pending.pop(0)
+            cpuset = free.pop(0)
+            proc = launch_trial(trial, config, cpuset)
+            trial.time_started = datetime.datetime.utcnow()
+            db_utils.add_all([trial])
+            key = cpuset if cpuset is not None else trial.id
+            running[key] = (trial, proc)
+            if core_allocation is not None and cpuset is not None:
+                core_allocation[cpuset] = trial.id
+            logs.info('Started trial %d (%s/%s). Running: %d, Pending: %d.',
+                      trial.id, trial.fuzzer, trial.benchmark,
+                      len(running), len(pending))
+
+        time.sleep(10)
+
+    logs.info('All trials completed.')
+
+
+def launch_trial(trial, config, cpuset=None):
+    """Launch a single trial runner container via subprocess."""
+    from experiment import scheduler
+
+    instance_name = experiment_utils.get_trial_instance_name(
+        config['experiment'], trial.id)
+
+    startup_script = scheduler.render_startup_script_template(
+        instance_name, trial.fuzzer, trial.benchmark, trial.id,
+        trial.trial_group_num or 0, config, cpuset)
+
+    script_path = f'/tmp/{instance_name}-start-docker.sh'
+    with open(script_path, 'w', encoding='utf-8') as f:
+        f.write(startup_script)
+
+    proc = subprocess.Popen(
+        ['/bin/bash', script_path],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    return proc
 
 
 def add_oss_fuzz_corpus(benchmark, oss_fuzz_corpora_dir):
@@ -410,31 +575,11 @@ def add_oss_fuzz_corpus(benchmark, oss_fuzz_corpora_dir):
 
 
 def copy_resources_to_bucket(config_dir: str, config: Dict):
-    """Copy resources the dispatcher will need for the experiment to the
-    experiment_filestore."""
-
-    def filter_file(tar_info):
-        """Filter out unnecessary directories."""
-        if FILTER_SOURCE_REGEX.match(tar_info.name):
-            return None
-        return tar_info
-
-    # Set environment variables to use corresponding filestore_utils.
-    os.environ['EXPERIMENT_FILESTORE'] = config['experiment_filestore']
-    os.environ['EXPERIMENT'] = config['experiment']
+    """Copy resources needed for the experiment to the experiment_filestore."""
     experiment_filestore_path = experiment_utils.get_experiment_filestore_path()
 
-    base_destination = os.path.join(experiment_filestore_path, 'input')
-
-    # Send the local source repository to the cloud for use by dispatcher.
-    # Local changes to any file will propagate.
-    source_archive = 'src.tar.gz'
-    with tarfile.open(source_archive, 'w:gz') as tar:
-        tar.add(utils.ROOT_DIR, arcname='', recursive=True, filter=filter_file)
-    filestore_utils.cp(source_archive, base_destination + '/', parallel=True)
-    os.remove(source_archive)
-
     # Send config files.
+    base_destination = os.path.join(experiment_filestore_path, 'input')
     destination = os.path.join(base_destination, 'config')
     filestore_utils.rsync(config_dir, destination, parallel=True)
 
@@ -455,195 +600,6 @@ def copy_resources_to_bucket(config_dir: str, config: Dict):
                 experiment_utils.get_custom_seed_corpora_filestore_path() + '/',
                 recursive=True,
                 parallel=True)
-
-
-class BaseDispatcher:
-    """Class representing the dispatcher."""
-
-    def __init__(self, config: Dict):
-        self.config = config
-        self.instance_name = experiment_utils.get_dispatcher_instance_name(
-            config['experiment'])
-
-    def start(self):
-        """Start the experiment on the dispatcher."""
-        raise NotImplementedError
-
-
-class LocalDispatcher(BaseDispatcher):
-    """Class representing the local dispatcher."""
-
-    def __init__(self, config: Dict):
-        super().__init__(config)
-        self.process = None
-
-    def start(self):
-        """Start the experiment on the dispatcher."""
-        container_name = 'dispatcher-container'
-        experiment_filestore_path = os.path.abspath(
-            self.config['experiment_filestore'])
-        filesystem.create_directory(experiment_filestore_path)
-        sql_database_arg = (
-            'SQL_DATABASE_URL=sqlite:///'
-            f'{os.path.join(experiment_filestore_path, "local.db")}'
-            '?check_same_thread=False')
-
-        docker_registry = self.config['docker_registry']
-        set_instance_name_arg = f'INSTANCE_NAME={self.instance_name}'
-        set_experiment_arg = f'EXPERIMENT={self.config["experiment"]}'
-        filestore = self.config['experiment_filestore']
-        shared_experiment_filestore_arg = f'{filestore}:{filestore}'
-        # TODO: (#484) Use config in function args or set as environment
-        # variables.
-        set_docker_registry_arg = f'DOCKER_REGISTRY={docker_registry}'
-        set_experiment_filestore_arg = (
-            f'EXPERIMENT_FILESTORE={self.config["experiment_filestore"]}')
-
-        filestore = self.config['report_filestore']
-        shared_report_filestore_arg = f'{filestore}:{filestore}'
-        set_report_filestore_arg = f'REPORT_FILESTORE={filestore}'
-        set_snapshot_period_arg = (
-            f'SNAPSHOT_PERIOD={self.config["snapshot_period"]}')
-        docker_image_url = f'{docker_registry}/dispatcher-image'
-        set_concurrent_builds_arg = (
-            f'CONCURRENT_BUILDS={self.config["concurrent_builds"]}')
-        set_worker_pool_name_arg = (
-            f'WORKER_POOL_NAME={self.config["worker_pool_name"]}')
-        environment_args = [
-            '-e',
-            'LOCAL_EXPERIMENT=True',
-            '-e',
-            'FORCE_LOCAL=True',
-            '-e',
-            set_instance_name_arg,
-            '-e',
-            set_experiment_arg,
-            '-e',
-            sql_database_arg,
-            '-e',
-            set_experiment_filestore_arg,
-            '-e',
-            set_snapshot_period_arg,
-            '-e',
-            set_report_filestore_arg,
-            '-e',
-            set_docker_registry_arg,
-            '-e',
-            set_concurrent_builds_arg,
-            '-e',
-            set_worker_pool_name_arg,
-        ]
-        if os.environ.get('FUZZBENCH_NO_BUILD'):
-            environment_args += [
-                '-e',
-                'FUZZBENCH_NO_BUILD=1',
-            ]
-        registry_user = os.environ.get('FUZZBENCH_REGISTRY_USER')
-        registry_password = os.environ.get('FUZZBENCH_REGISTRY_PASSWORD')
-        if registry_user and registry_password:
-            if os.environ.get('FUZZBENCH_NO_BUILD'):
-                cmd = f'docker login {docker_registry} --username "{registry_user}" --password "{registry_password}"'
-                print(cmd)
-                assert os.system(cmd) == 0
-            environment_args += [
-                '-e',
-                f'FUZZBENCH_REGISTRY_USER={registry_user}',
-                '-e',
-                f'FUZZBENCH_REGISTRY_PASSWORD={registry_password}',
-            ]
-        command = [
-            'docker',
-            'run',
-            '-i',
-            '--rm',
-            '-v',
-            '/var/run/docker.sock:/var/run/docker.sock',
-            '-v',
-            shared_experiment_filestore_arg,
-            '-v',
-            shared_report_filestore_arg,
-        ] + (['-p', '5678:5678'] if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else []) + environment_args + [
-            '--shm-size=2g',
-            '--cap-add=SYS_PTRACE',
-            '--cap-add=SYS_NICE',
-            # f'--name={container_name}',
-            docker_image_url,
-            '/bin/bash',
-            '-c',
-            'rsync -r '
-            '"${EXPERIMENT_FILESTORE}/${EXPERIMENT}/input/" ${WORK} && '
-            'mkdir ${WORK}/src && '
-            'tar -xzf ${WORK}/src.tar.gz -C ${WORK}/src && '
-            'if [ -n "${FUZZBENCH_REGISTRY_USER}" ] && [ -n "${FUZZBENCH_REGISTRY_PASSWORD}" ]; then '
-            'echo "${FUZZBENCH_REGISTRY_PASSWORD}" | docker login ${DOCKER_REGISTRY} --username "${FUZZBENCH_REGISTRY_USER}" --password "${FUZZBENCH_REGISTRY_PASSWORD}"; fi && ' +
-            ('python3 -m pip install debugpy && ' if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else '') +
-            'PYTHONPATH=${WORK}/src ' +
-            ('python3 -m debugpy --listen 0.0.0.0:5678 --wait-for-client ' if os.environ.get('DEBUGPY_FUZZBENCH_DISPATCHER') else 'python3 ') +
-            ('${WORK}/src/experiment/dispatcher.py ' if not os.environ.get('FIX_MEASURE') else f'-m experiment.measurer.measure_manager {os.environ.get("FIX_MEASURE")} ')
-            #  + '|| /bin/bash'  # Open shell if experiment fails.
-        ]
-        logs.info('Starting dispatcher with container name: %s', container_name)
-        return new_process.execute(command, write_to_stdout=True)
-
-
-class GoogleCloudDispatcher(BaseDispatcher):
-    """Class representing the dispatcher instance on Google Cloud."""
-
-    def start(self):
-        """Start the experiment on the dispatcher."""
-        with tempfile.NamedTemporaryFile(dir=os.getcwd(),
-                                         mode='w') as startup_script:
-            self.write_startup_script(startup_script)
-            if not gcloud.create_instance(self.instance_name,
-                                          gcloud.InstanceType.DISPATCHER,
-                                          self.config,
-                                          startup_script=startup_script.name):
-                raise RuntimeError('Failed to create dispatcher.')
-            logs.info('Started dispatcher with instance name: %s',
-                      self.instance_name)
-
-    def _render_startup_script(self):
-        """Renders the startup script template and returns the result as a
-        string."""
-        jinja_env = jinja2.Environment(
-            undefined=jinja2.StrictUndefined,
-            loader=jinja2.FileSystemLoader(RESOURCES_DIR),
-        )
-        template = jinja_env.get_template(
-            'dispatcher-startup-script-template.sh')
-        cloud_sql_instance_connection_name = (
-            self.config['cloud_sql_instance_connection_name'])
-
-        kwargs = {
-            'instance_name': self.instance_name,
-            'postgres_password': os.environ['POSTGRES_PASSWORD'],
-            'experiment': self.config['experiment'],
-            'cloud_project': self.config['cloud_project'],
-            'experiment_filestore': self.config['experiment_filestore'],
-            'cloud_sql_instance_connection_name':
-                (cloud_sql_instance_connection_name),
-            'docker_registry': self.config['docker_registry'],
-            'concurrent_builds': self.config['concurrent_builds'],
-            'worker_pool_name': self.config['worker_pool_name'],
-            'private': self.config['private'],
-        }
-        if 'worker_pool_name' in self.config:
-            kwargs['worker_pool_name'] = self.config['worker_pool_name']
-        return template.render(**kwargs)
-
-    def write_startup_script(self, startup_script_file):
-        """Get the startup script to start the experiment on the dispatcher."""
-        startup_script = self._render_startup_script()
-        startup_script_file.write(startup_script)
-        startup_script_file.flush()
-
-
-def get_dispatcher(config: Dict) -> BaseDispatcher:
-    """Return a dispatcher object created from the right class (i.e. dispatcher
-    factory)."""
-    if config.get('local_experiment'):
-        return LocalDispatcher(config)
-    return GoogleCloudDispatcher(config)
 
 
 def main():
@@ -756,21 +712,9 @@ def run_experiment_main(args=None):
         parser.error('The runners cpus argument must be a positive number,'
                      f' received {runners_cpus}.')
 
+    # measurers_cpus is kept for backward compatibility but not used here.
+    # Measurement is now done separately via run_measurer.py.
     measurers_cpus = args.measurers_cpus
-    if measurers_cpus is not None and measurers_cpus <= 0:
-        parser.error('The measurers cpus argument must be a positive number,'
-                     f' received {measurers_cpus}.')
-
-    if runners_cpus is None and measurers_cpus is not None:
-        parser.error('With the measurers cpus argument (received '
-                     f'{measurers_cpus}) you need to specify the runners cpus '
-                     'argument too.')
-
-    if (runners_cpus if runners_cpus else 0) + (measurers_cpus if measurers_cpus
-                                                else 0) > os.cpu_count():
-        parser.error(f'The sum of runners ({runners_cpus}) and measurers cpus '
-                     f'({measurers_cpus}) is greater than the available cpu '
-                     f'cores (os.cpu_count()).')
 
     if args.custom_seed_corpus_dir:
         if args.no_seeds:
