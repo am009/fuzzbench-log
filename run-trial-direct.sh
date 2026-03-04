@@ -11,10 +11,10 @@ EXPERIMENT_NAME=""
 BENCHMARKS=""
 FUZZERS=""
 TRIALS=1
-DOCKER_REGISTRY="gcr.io/fuzzbench"
+DOCKER_REGISTRY="wjk-pc-registry.fancybag.cn/fuzzbench"
 MAX_TOTAL_TIME=82800
 SNAPSHOT_PERIOD=900
-EXPERIMENT_FILESTORE="/home/user/experiment-data"
+EXPERIMENT_FILESTORE="/home/wjk/experiment-data"
 CPUS_PER_RUNNER=1
 TAG="latest"
 
@@ -84,6 +84,20 @@ else
     TRIAL_ID=0
 fi
 
+# Phase 1: Pull all images first
+echo "=== Phase 1: Pulling all images ==="
+for FUZZER in "${FUZZER_ARRAY[@]}"; do
+    for BENCHMARK in "${BENCHMARK_ARRAY[@]}"; do
+        IMAGE="${DOCKER_REGISTRY}/runners/${FUZZER}/${BENCHMARK}:${TAG}"
+        echo "Pulling image: $IMAGE"
+        docker pull "$IMAGE" || { echo "ERROR: Failed to pull $IMAGE, aborting."; exit 1; }
+    done
+done
+echo "All images pulled successfully."
+echo ""
+
+# Phase 2: Run all containers
+echo "=== Phase 2: Starting all trial containers ==="
 for FUZZER in "${FUZZER_ARRAY[@]}"; do
     for BENCHMARK in "${BENCHMARK_ARRAY[@]}"; do
         IMAGE="${DOCKER_REGISTRY}/runners/${FUZZER}/${BENCHMARK}:${TAG}"
@@ -95,9 +109,6 @@ for FUZZER in "${FUZZER_ARRAY[@]}"; do
             echo "ERROR: fuzz_target not found in $BENCHMARK_YAML, skipping"
             continue
         fi
-
-        echo "Pulling image: $IMAGE"
-        docker pull "$IMAGE" || { echo "ERROR: Failed to pull $IMAGE, skipping"; continue; }
 
         for ((T=0; T<TRIALS; T++)); do
             TRIAL_ID=$((TRIAL_ID + 1))
