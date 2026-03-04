@@ -308,6 +308,7 @@ def start_experiment(  # pylint: disable=too-many-arguments
         concurrent_builds: Optional[int] = DEFAULT_CONCURRENT_BUILDS,
         measurers_cpus: Optional[int] = None,
         runners_cpus: Optional[int] = None,
+        no_cpuset: bool = False,
         region_coverage: bool = False,
         custom_seed_corpus_dir: Optional[str] = None):
     """Start a fuzzer benchmarking experiment."""
@@ -338,6 +339,7 @@ def start_experiment(  # pylint: disable=too-many-arguments
     # 12GB is just the amount that KLEE needs, use this default to make KLEE
     # experiments easier to run.
     config['runner_memory'] = config.get('runner_memory', '12GB')
+    config['no_cpuset'] = no_cpuset
     config['region_coverage'] = region_coverage
 
     config['custom_seed_corpus_dir'] = custom_seed_corpus_dir
@@ -474,10 +476,14 @@ def run_all_trials(config, trials, db_utils):
     completion."""
     runners_cpus = config.get('runners_cpus')
     runner_num_cpu_cores = config['runner_num_cpu_cores']
+    no_cpuset = config.get('no_cpuset', False)
 
     # Calculate cpuset allocation (mirrors scheduler.py logic)
     core_allocation = None
-    if runners_cpus is not None:
+    if no_cpuset:
+        logs.info('Cpuset scheduling disabled, using --cpus=%d only.',
+                  runner_num_cpu_cores)
+    elif runners_cpus is not None:
         processes = runners_cpus // runner_num_cpu_cores
         logs.info('Scheduling runners from core 0 to %d (%d slots).',
                   runner_num_cpu_cores * processes - 1, processes)
@@ -655,6 +661,11 @@ def run_experiment_main(args=None):
                         help='Cpus available to the runners.',
                         type=int,
                         required=False)
+    parser.add_argument('--no-cpuset',
+                        help='Disable cpuset pinning, use --cpus only.',
+                        required=False,
+                        default=False,
+                        action='store_true')
     parser.add_argument('-cs',
                         '--custom-seed-corpus-dir',
                         help='Path to the custom seed corpus',
@@ -744,6 +755,7 @@ def run_experiment_main(args=None):
                      concurrent_builds=concurrent_builds,
                      measurers_cpus=measurers_cpus,
                      runners_cpus=runners_cpus,
+                     no_cpuset=args.no_cpuset,
                      region_coverage=args.region_coverage,
                      custom_seed_corpus_dir=args.custom_seed_corpus_dir)
     return 0

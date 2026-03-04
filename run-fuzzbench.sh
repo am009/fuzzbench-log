@@ -104,30 +104,45 @@ fi
 
 # Wait for docker and prepare benchmark
 # /sn640/fuzzerlog/wait-docker.sh || exit 1
-$SCRIPTPATH/wait-docker-fuzzbench.sh || exit 1
+# $SCRIPTPATH/wait-docker-fuzzbench.sh || exit 1
 # /home/wjk/benchmark-prepare.sh || exit 1
 
 cd $SCRIPTPATH
 source .venv/bin/activate
 
-# Build the experiment command
-EXPERIMENT_CMD="PYTHONPATH=. python3 experiment/run_experiment.py --measurers-cpus 1 --runners-cpus 15"
+# Phase 1: Build images and run all trial runners
+EXPERIMENT_CMD="PYTHONPATH=. python3 experiment/run_experiment.py -cb 8 --runners-cpus 246"
 EXPERIMENT_CMD="$EXPERIMENT_CMD --experiment-config $SCRIPTPATH/fuzzbench.yaml"
 EXPERIMENT_CMD="$EXPERIMENT_CMD --experiment-name $EXPERIMENT_NAME"
 EXPERIMENT_CMD="$EXPERIMENT_CMD --benchmarks ${BENCHMARK_ARRAY[*]}"
 EXPERIMENT_CMD="$EXPERIMENT_CMD --fuzzers ${FUZZER_ARRAY[*]}"
-EXPERIMENT_CMD="$EXPERIMENT_CMD --allow-uncommitted-changes 2>&1 | tee /sn640/fuzzerlog/fuzzbench-log.txt"
+EXPERIMENT_CMD="$EXPERIMENT_CMD --allow-uncommitted-changes 2>&1"
 
+echo "Phase 1: Running trial runners"
 echo "Running command:"
 echo "$EXPERIMENT_CMD"
 echo ""
 
-# Execute the experiment
+# Execute the experiment runners
 eval "$EXPERIMENT_CMD"
+
+# Phase 2: Run measurer (after all runners complete)
+MEASURER_CMD="PYTHONPATH=. python3 experiment/run_measurer.py"
+MEASURER_CMD="$MEASURER_CMD --experiment-config $SCRIPTPATH/fuzzbench.yaml"
+MEASURER_CMD="$MEASURER_CMD --experiment-name $EXPERIMENT_NAME"
+MEASURER_CMD="$MEASURER_CMD --measurers-cpus 10 2>&1"
+
+echo ""
+echo "Phase 2: Running measurer"
+echo "Running command:"
+echo "$MEASURER_CMD"
+echo ""
+
+eval "$MEASURER_CMD"
 
 
 # Restore benchmark
 # /home/wjk/benchmark-restore.sh || exit 1
 
-sudo chown -R ubuntu:ubuntu /sn640/fuzzerlog/experiment-data/$EXPERIMENT_NAME
-sudo chown -R ubuntu:ubuntu /sn640/fuzzerlog/report-data/$EXPERIMENT_NAME
+sudo chown -R user:user /home/user/experiment-data/$EXPERIMENT_NAME
+sudo chown -R user:user /home/user/report-data
