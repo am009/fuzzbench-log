@@ -39,6 +39,8 @@ REGISTRY="${REGISTRY:-registry.example.com}"
 
 SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
+export BUILDKIT_PROGRESS=plain
+
 has_image() {
     if [ $# -eq 0 ]; then
         echo "错误: 请提供Docker镜像名称作为参数"
@@ -147,16 +149,16 @@ echo "获取远程镜像列表..."
 
 # 统计组合数
 total=0
+for benchmark in $benchmarks; do
 for fuzzer in $fuzzers; do
-    for benchmark in $benchmarks; do
         total=$((total + 1))
     done
 done
 echo "共 $total 个 fuzzer×benchmark 组合"
 
 # 生成所有组合并通过 xargs 并行执行
+for benchmark in $benchmarks; do
 for fuzzer in $fuzzers; do
-    for benchmark in $benchmarks; do
         echo "$fuzzer $benchmark"
     done
 done | xargs -P "$JOBS" -n 2 "$SCRIPT_ABS_PATH"
