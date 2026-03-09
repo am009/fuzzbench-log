@@ -32,7 +32,7 @@ def compress_fuzzerlog_files(directory: str) -> int:
                 try:
                     # Compress the file
                     with open(filepath, 'rb') as f_in:
-                        with gzip.open(gz_filepath, 'wb') as f_out:
+                        with gzip.open(gz_filepath, 'wb', compresslevel=1) as f_out:
                             shutil.copyfileobj(f_in, f_out)
 
                     # Remove the original file
