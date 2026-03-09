@@ -38,7 +38,7 @@ RUN apt-get update && \
     chmod 777 /usr/local/lib/libfuzzerlog.so
 
 # Download libafl.
-RUN git clone -b fuzzerloglib https://github.com/am009/LibAFL /libafl && cd /libafl && git checkout 78b01b4770031e7a6c98fbb6d5191b6f86915aab
+RUN git clone -b fuzzerloglib https://github.com/am009/LibAFL /libafl && cd /libafl && git checkout 0fefbf8b3af76358edd52fc7bc926d48d4a6d804
 
 # Compile libafl.
 RUN cd /libafl && \
