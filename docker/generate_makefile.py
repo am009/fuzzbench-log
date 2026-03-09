@@ -125,9 +125,9 @@ def get_rules_for_image(name, image):
     #     section += '\tdocker pull ubuntu:focal\n'
     section += '\tdocker build \\\n'
     section += '\t--tag ' + os.path.join(BASE_TAG, image['tag']) + ' \\\n'
-    section += '\t--build-arg BUILDKIT_INLINE_CACHE=1 \\\n'
-    section += ('\t--cache-from ' + os.path.join(BASE_TAG, image['tag']) +
-                ' \\\n')
+    # section += '\t--build-arg BUILDKIT_INLINE_CACHE=1 \\\n'
+    # section += ('\t--cache-from ' + os.path.join(BASE_TAG, image['tag']) +
+    #             ' \\\n')
 
     if 'build_arg' in image:
         for arg in image['build_arg']:
