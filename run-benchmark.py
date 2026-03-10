@@ -268,6 +268,8 @@ def main():
                         help="Experiment name (default: auto-<benchmark>)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Only show trial counts, do not run anything")
+    parser.add_argument("--skip-check", action="store_true",
+                        help="Skip pre-flight check for running runner containers")
     args = parser.parse_args()
 
     benchmark = args.benchmark
@@ -310,8 +312,22 @@ def main():
     # ── Ensure experiment directory exists ───────────────────────────────
     os.makedirs(EXPERIMENT_FILESTORE, exist_ok=True)
 
+    # ── Pre-flight checks ─────────────────────────────────────────────
+    # Ensure no fuzzbench runner containers are already running
+    if not args.skip_check:
+        ret = subprocess.run(
+            ["docker", "ps", "--filter", "name=runner-", "--format", "{{.Names}}"],
+            capture_output=True, text=True,
+        )
+        running_containers = [c for c in ret.stdout.strip().splitlines() if c]
+        if running_containers:
+            print(f"ERROR: {len(running_containers)} fuzzbench runner container(s) already running:")
+            for c in running_containers:
+                print(f"  {c}")
+            print("Please stop them before starting new trials.")
+            sys.exit(1)
+
     # ── Launch threads ───────────────────────────────────────────────────
-    # TODO 确保没有fuzzbench容器在运行。
     semaphore = threading.Semaphore(max_parallel)
     threads = []
 
