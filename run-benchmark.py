@@ -27,7 +27,9 @@ import filelock
 
 # ── Global configuration ────────────────────────────────────────────────────
 
-REQUIRED_TRIALS = 5
+DEBUG=True
+
+REQUIRED_TRIALS = 3
 
 DOCKER_REGISTRY = "wjk-pc-registry.fancybag.cn/fuzzbench"
 DOCKER_TAG = "latest"
@@ -146,70 +148,111 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
             print(f"{tag} ERROR pulling image")
             return
 
-        # ── 2. docker run -d, then poll until container exits ────────────
-        print(f"{tag} Starting container {container_name}")
-        ret = subprocess.run([
-            "docker", "run",
-            "--privileged", f"--cpus={CPUS_PER_RUNNER}",
-            "-d", "--rm",
-            "-e", f"INSTANCE_NAME={container_name}",
-            "-e", f"FUZZER={fuzzer}",
-            "-e", f"BENCHMARK={benchmark}",
-            "-e", f"EXPERIMENT={experiment_name}",
-            "-e", f"TRIAL_ID={trial_id}",
-            "-e", "MICRO_EXPERIMENT=False",
-            "-e", f"MAX_TOTAL_TIME={MAX_TOTAL_TIME}",
-            "-e", f"SNAPSHOT_PERIOD={SNAPSHOT_PERIOD}",
-            "-e", "NO_SEEDS=False",
-            "-e", "NO_DICTIONARIES=False",
-            "-e", "OSS_FUZZ_CORPUS=False",
-            "-e", "CUSTOM_SEED_CORPUS_DIR=",
-            "-e", f"DOCKER_REGISTRY={DOCKER_REGISTRY}",
-            "-e", f"EXPERIMENT_FILESTORE={EXPERIMENT_FILESTORE}",
-            "-e", f"FUZZ_TARGET={fuzz_target}",
-            "-e", "PRIVATE=False",
-            "-e", "LOCAL_EXPERIMENT=True",
-            "-v", f"{EXPERIMENT_FILESTORE}:{EXPERIMENT_FILESTORE}",
-            "--shm-size=2g",
-            "--cap-add", "SYS_NICE",
-            "--cap-add", "SYS_PTRACE",
-            "--security-opt", "seccomp=unconfined",
-            "--name", container_name,
-            image,
-        ], capture_output=True, text=True)
-
-        if ret.returncode != 0:
-            print(f"{tag} ERROR starting container")
-            return
-
-        # Wait for the container to finish
-        print(f"{tag} Waiting for container to finish...")
-        ret = subprocess.run(["docker", "wait", container_name],
-                             capture_output=True, text=True)
-        exit_code = ret.stdout.strip()
-
-        if exit_code != "0":
-            print(f"{tag} ERROR container exited with code {exit_code}")
-            return
-        print(f"{tag} Container finished successfully.")
-
-        # ── 3. gen-coverage-standalone.sh ────────────────────────────────
-        corpus_path = os.path.join(
+        # ── 1.5. Set up fuse-zstd compressed results directory ──────────
+        trial_dir = os.path.join(
             EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
-            f"{benchmark}-{fuzzer}", f"trial-{trial_id}", "corpus",
+            f"{benchmark}-{fuzzer}", f"trial-{trial_id}",
         )
-        if os.path.isdir(corpus_path):
-            print(f"{tag} Generating coverage for {corpus_path}")
-            ret = subprocess.run(
-                [GEN_COVERAGE_SCRIPT, FUZZBENCH_DIR, corpus_path],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            )
+        results_dir = os.path.join(trial_dir, "results")
+        results_data_dir = os.path.join(trial_dir, "results-data")
+        os.makedirs(results_dir, exist_ok=True)
+        os.makedirs(results_data_dir, exist_ok=True)
+
+        print(f"{tag} Mounting fuse-zstd: {results_dir} -> {results_data_dir}")
+        fuse_proc = subprocess.Popen(
+            ["fuse-zstd",
+             "--mount-point", results_dir,
+             "--data-dir", results_data_dir,
+             "-c", "1"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        # Give fuse-zstd a moment to initialize the mount
+        time.sleep(1)
+        if fuse_proc.poll() is not None:
+            print(f"{tag} ERROR: fuse-zstd exited early with code {fuse_proc.returncode}")
+            return
+
+        # ── 2. docker run -d, then poll until container exits ────────────
+        try:
+            print(f"{tag} Starting container {container_name}")
+            commands = [
+                "docker", "run",
+                "--privileged", f"--cpus={CPUS_PER_RUNNER}",
+                "-d", "--rm",
+                "-e", f"INSTANCE_NAME={container_name}",
+                "-e", f"FUZZER={fuzzer}",
+                "-e", f"BENCHMARK={benchmark}",
+                "-e", f"EXPERIMENT={experiment_name}",
+                "-e", f"TRIAL_ID={trial_id}",
+                "-e", "MICRO_EXPERIMENT=False",
+                "-e", f"MAX_TOTAL_TIME={MAX_TOTAL_TIME}",
+                "-e", f"SNAPSHOT_PERIOD={SNAPSHOT_PERIOD}",
+                "-e", "NO_SEEDS=False",
+                "-e", "NO_DICTIONARIES=False",
+                "-e", "OSS_FUZZ_CORPUS=False",
+                "-e", "CUSTOM_SEED_CORPUS_DIR=",
+                "-e", f"DOCKER_REGISTRY={DOCKER_REGISTRY}",
+                "-e", f"EXPERIMENT_FILESTORE={EXPERIMENT_FILESTORE}",
+                "-e", f"FUZZ_TARGET={fuzz_target}",
+                "-e", "PRIVATE=False",
+                "-e", "LOCAL_EXPERIMENT=True",
+                "-v", f"{EXPERIMENT_FILESTORE}:{EXPERIMENT_FILESTORE}",
+                "-v", "/usr/local/lib/libfuzzerlog.so:/usr/local/lib/libfuzzerlog.so",
+                "--shm-size=2g",
+                "--cap-add", "SYS_NICE",
+                "--cap-add", "SYS_PTRACE",
+                "--security-opt", "seccomp=unconfined",
+                "--name", container_name,
+                image,
+            ]
+            if DEBUG:
+                print(' '.join(commands))
+            ret = subprocess.run(commands, capture_output=True, text=True)
+
             if ret.returncode != 0:
-                print(f"{tag} ERROR generating coverage")
+                print(f"{tag} ERROR starting container")
+                return
+
+            # Wait for the container to finish
+            print(f"{tag} Waiting for container to finish...")
+            ret = subprocess.run(["docker", "wait", container_name],
+                                 capture_output=True, text=True)
+            exit_code = ret.stdout.strip()
+
+            if exit_code != "0":
+                print(f"{tag} ERROR container exited with code {exit_code}")
+                return
+            print(f"{tag} Container finished successfully.")
+
+            # ── 3. gen-coverage-standalone.sh ────────────────────────────
+            corpus_path = os.path.join(
+                EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
+                f"{benchmark}-{fuzzer}", f"trial-{trial_id}", "corpus",
+            )
+            if os.path.isdir(corpus_path):
+                print(f"{tag} Generating coverage for {corpus_path}")
+                ret = subprocess.run(
+                    [GEN_COVERAGE_SCRIPT, FUZZBENCH_DIR, corpus_path],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                if ret.returncode != 0:
+                    print(f"{tag} ERROR generating coverage")
+                else:
+                    print(f"{tag} Coverage generated.")
             else:
-                print(f"{tag} Coverage generated.")
-        else:
-            print(f"{tag} WARNING: corpus not found at {corpus_path}, skipping coverage.")
+                print(f"{tag} WARNING: corpus not found at {corpus_path}, skipping coverage.")
+        finally:
+            # ── 4. Stop fuse-zstd and unmount ────────────────────────────
+            print(f"{tag} Stopping fuse-zstd and unmounting {results_dir}")
+            fuse_proc.terminate()
+            try:
+                fuse_proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                fuse_proc.kill()
+                fuse_proc.wait()
+            # Ensure the FUSE mount is fully released
+            subprocess.run(["fusermount", "-u", results_dir],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     print(f"{tag} Done, slot released.")
 
@@ -268,6 +311,7 @@ def main():
     os.makedirs(EXPERIMENT_FILESTORE, exist_ok=True)
 
     # ── Launch threads ───────────────────────────────────────────────────
+    # TODO 确保没有fuzzbench容器在运行。
     semaphore = threading.Semaphore(max_parallel)
     threads = []
 
