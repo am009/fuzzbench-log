@@ -153,8 +153,8 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
             EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
             f"{benchmark}-{fuzzer}", f"trial-{trial_id}",
         )
-        results_dir = os.path.join(trial_dir, "results")
-        results_data_dir = os.path.join(trial_dir, "results-data")
+        results_dir = os.path.join(trial_dir, "log")
+        results_data_dir = os.path.join(trial_dir, "log-data")
         os.makedirs(results_dir, exist_ok=True)
         os.makedirs(results_data_dir, exist_ok=True)
 
@@ -197,7 +197,9 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
                 "-e", "PRIVATE=False",
                 "-e", "LOCAL_EXPERIMENT=True",
                 "-v", f"{EXPERIMENT_FILESTORE}:{EXPERIMENT_FILESTORE}",
+                "-e", f"FUZZER_LOG_FILE={results_dir}/fuzzerlog.txt",
                 "-v", "/usr/local/lib/libfuzzerlog.so:/usr/local/lib/libfuzzerlog.so",
+                "-v", "/sn640/fuzzerlog/fuzzbench/experiment/runner.py:/src/experiment/runner.py",
                 "--shm-size=2g",
                 "--cap-add", "SYS_NICE",
                 "--cap-add", "SYS_PTRACE",

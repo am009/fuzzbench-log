@@ -210,9 +210,10 @@ def run_fuzzer(max_total_time, log_filename):
 
         # Write output to stdout if user is fuzzing from command line.
         # Otherwise, write output to the log file.
-        fuzzer_log_file = os.path.join(os.path.dirname(log_filename), 'fuzzerlog.txt')
-        env['FUZZER_LOG_FILE'] = fuzzer_log_file
-        print("FUZZER_LOG_FILE set to " + env['FUZZER_LOG_FILE'])
+        if 'FUZZER_LOG_FILE' not in env:
+            fuzzer_log_file = os.path.join(os.path.dirname(log_filename), 'fuzzerlog.txt')
+            env['FUZZER_LOG_FILE'] = fuzzer_log_file
+            logs.warning("FUZZER_LOG_FILE set to " + env['FUZZER_LOG_FILE'])
         if environment.get('FUZZ_OUTSIDE_EXPERIMENT'):
             new_process.execute(command,
                                 timeout=max_total_time,
@@ -243,7 +244,7 @@ class TrialRunner:  # pylint: disable=too-many-instance-attributes
             trial_id = environment.get('TRIAL_ID')
             self.gcs_sync_dir = experiment_utils.get_trial_bucket_dir(
                 self.fuzzer, benchmark, trial_id)
-            filestore_utils.rm(self.gcs_sync_dir, force=True, parallel=True)
+            # filestore_utils.rm(self.gcs_sync_dir, force=True, parallel=True)
         else:
             self.gcs_sync_dir = None
 
