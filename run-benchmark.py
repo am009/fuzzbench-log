@@ -29,7 +29,7 @@ import filelock
 
 DEBUG=True
 
-REQUIRED_TRIALS = 3
+REQUIRED_TRIALS = 5
 
 DOCKER_REGISTRY = "wjk-pc-registry.fancybag.cn/fuzzbench"
 DOCKER_TAG = "latest"
@@ -199,7 +199,7 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
                 "-v", f"{EXPERIMENT_FILESTORE}:{EXPERIMENT_FILESTORE}",
                 "-e", f"FUZZER_LOG_FILE={results_dir}/fuzzerlog.txt",
                 "-v", "/usr/local/lib/libfuzzerlog.so:/usr/local/lib/libfuzzerlog.so",
-                "-v", "/sn640/fuzzerlog/fuzzbench/experiment/runner.py:/src/experiment/runner.py",
+                "-v", "/home/user/fuzzbench-log/experiment/runner.py:/src/experiment/runner.py",
                 "--shm-size=2g",
                 "--cap-add", "SYS_NICE",
                 "--cap-add", "SYS_PTRACE",
@@ -278,7 +278,15 @@ def main():
     max_parallel = args.max_parallel
     experiment_name = args.experiment
     if experiment_name == "auto":
-        experiment_name = f"auto-{benchmark}"
+        base = f"auto-{benchmark}"
+        experiment_name = base
+        suffix = 2
+        while any(
+            os.path.exists(os.path.join(store, experiment_name))
+            for store in EXPERIMENT_FILESTORES
+        ):
+            experiment_name = f"{base}-{suffix}"
+            suffix += 1
 
     # Validate benchmark
     benchmark_yaml = os.path.join(FUZZBENCH_DIR, "benchmarks", benchmark, "benchmark.yaml")
