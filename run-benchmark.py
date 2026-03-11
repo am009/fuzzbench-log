@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Schedule and run fuzzbench trials for a given benchmark.
+Schedule and run fuzzbench trials for one or more benchmarks.
 
 Usage:
-    python3 run-benchmark.py <benchmark> <max_parallel> [--experiment <name>]
+    python3 run-benchmark.py <benchmark> [benchmark ...] <max_parallel> [--experiment <name>]
 
 For each fuzzer, checks how many trials have already completed (across all
 experiment directories).  If fewer than REQUIRED_TRIALS, launches new trials
@@ -263,9 +263,10 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run fuzzbench trials for a benchmark until each fuzzer has enough trials.")
-    parser.add_argument("benchmark", help="Benchmark name (e.g. bloaty_fuzz_target)")
-    parser.add_argument("max_parallel", type=int, help="Maximum number of concurrent trials")
+        description="Run fuzzbench trials for one or more benchmarks until each fuzzer has enough trials.")
+    parser.add_argument("benchmarks", nargs="+", help="Benchmark name(s) (e.g. bloaty_fuzz_target)")
+    parser.add_argument("--max-parallel", "-p", type=int, required=True,
+                        help="Maximum number of concurrent trials")
     parser.add_argument("--experiment", "-e", default="auto",
                         help="Experiment name (default: auto-<benchmark>)")
     parser.add_argument("--dry-run", action="store_true",
@@ -274,56 +275,9 @@ def main():
                         help="Skip pre-flight check for running runner containers")
     args = parser.parse_args()
 
-    benchmark = args.benchmark
     max_parallel = args.max_parallel
-    experiment_name = args.experiment
-    if experiment_name == "auto":
-        base = f"auto-{benchmark}"
-        experiment_name = base
-        suffix = 2
-        while any(
-            os.path.exists(os.path.join(store, experiment_name))
-            for store in EXPERIMENT_FILESTORES
-        ):
-            experiment_name = f"{base}-{suffix}"
-            suffix += 1
 
-    # Validate benchmark
-    benchmark_yaml = os.path.join(FUZZBENCH_DIR, "benchmarks", benchmark, "benchmark.yaml")
-    if not os.path.exists(benchmark_yaml):
-        print(f"ERROR: benchmark.yaml not found at {benchmark_yaml}")
-        sys.exit(1)
-
-    fuzz_target = get_fuzz_target(benchmark)
-    print(f"Benchmark:      {benchmark}")
-    print(f"Fuzz target:    {fuzz_target}")
-    print(f"Experiment:     {experiment_name}")
-    print(f"Max parallel:   {max_parallel}")
-    print(f"Required trials per fuzzer: {REQUIRED_TRIALS}")
-    print()
-
-    # ── Count existing trials and build work list ────────────────────────
-    tasks = []  # list of (fuzzer, needed_count)
-    for fuzzer in ALL_FUZZERS:
-        existing = count_existing_trials(benchmark, fuzzer)
-        needed = REQUIRED_TRIALS - existing
-        status = "OK" if needed <= 0 else f"need {needed} more"
-        print(f"  {fuzzer:50s}  existing={existing}  {status}")
-        if needed > 0:
-            tasks.append((fuzzer, needed))
-
-    total_new = sum(n for _, n in tasks)
-    print(f"\nTotal new trials to run: {total_new}")
-    if total_new == 0 or args.dry_run:
-        if total_new == 0:
-            print("All fuzzers have enough trials. Nothing to do.")
-        return
-
-    # ── Ensure experiment directory exists ───────────────────────────────
-    os.makedirs(EXPERIMENT_FILESTORE, exist_ok=True)
-
-    # ── Pre-flight checks ─────────────────────────────────────────────
-    # Ensure no fuzzbench runner containers are already running
+    # ── Pre-flight checks (once, before any benchmark) ────────────────
     if not args.skip_check:
         ret = subprocess.run(
             ["docker", "ps", "--filter", "name=runner-", "--format", "{{.Names}}"],
@@ -337,26 +291,77 @@ def main():
             print("Please stop them before starting new trials.")
             sys.exit(1)
 
-    # ── Launch threads ───────────────────────────────────────────────────
-    semaphore = threading.Semaphore(max_parallel)
-    threads = []
+    os.makedirs(EXPERIMENT_FILESTORE, exist_ok=True)
 
-    for fuzzer, needed in tasks:
-        for _ in range(needed):
-            t = threading.Thread(
-                target=run_trial,
-                args=(benchmark, fuzzer, fuzz_target, experiment_name, semaphore),
-                daemon=True,
-            )
-            t.start()
-            threads.append(t)
-            time.sleep(0.1)  # slight stagger to avoid pull stampede
+    for benchmark in args.benchmarks:
+        print(f"\n{'='*60}")
+        print(f"Benchmark: {benchmark}")
+        print(f"{'='*60}")
 
-    print(f"\nLaunched {len(threads)} trial threads. Waiting for completion...")
-    for t in threads:
-        t.join()
+        experiment_name = args.experiment
+        if experiment_name == "auto":
+            base = f"auto-{benchmark}"
+            experiment_name = base
+            suffix = 2
+            while any(
+                os.path.exists(os.path.join(store, experiment_name))
+                for store in EXPERIMENT_FILESTORES
+            ):
+                experiment_name = f"{base}-{suffix}"
+                suffix += 1
 
-    print("\nAll trials completed.")
+        # Validate benchmark
+        benchmark_yaml = os.path.join(FUZZBENCH_DIR, "benchmarks", benchmark, "benchmark.yaml")
+        if not os.path.exists(benchmark_yaml):
+            print(f"ERROR: benchmark.yaml not found at {benchmark_yaml}, skipping.")
+            continue
+
+        fuzz_target = get_fuzz_target(benchmark)
+        print(f"Fuzz target:    {fuzz_target}")
+        print(f"Experiment:     {experiment_name}")
+        print(f"Max parallel:   {max_parallel}")
+        print(f"Required trials per fuzzer: {REQUIRED_TRIALS}")
+        print()
+
+        # ── Count existing trials and build work list ────────────────────
+        tasks = []  # list of (fuzzer, needed_count)
+        for fuzzer in ALL_FUZZERS:
+            existing = count_existing_trials(benchmark, fuzzer)
+            needed = REQUIRED_TRIALS - existing
+            status = "OK" if needed <= 0 else f"need {needed} more"
+            print(f"  {fuzzer:50s}  existing={existing}  {status}")
+            if needed > 0:
+                tasks.append((fuzzer, needed))
+
+        total_new = sum(n for _, n in tasks)
+        print(f"\nTotal new trials to run: {total_new}")
+        if total_new == 0 or args.dry_run:
+            if total_new == 0:
+                print("All fuzzers have enough trials. Nothing to do.")
+            continue
+
+        # ── Launch threads ───────────────────────────────────────────────
+        semaphore = threading.Semaphore(max_parallel)
+        threads = []
+
+        for fuzzer, needed in tasks:
+            for _ in range(needed):
+                t = threading.Thread(
+                    target=run_trial,
+                    args=(benchmark, fuzzer, fuzz_target, experiment_name, semaphore),
+                    daemon=True,
+                )
+                t.start()
+                threads.append(t)
+                time.sleep(0.1)  # slight stagger to avoid pull stampede
+
+        print(f"\nLaunched {len(threads)} trial threads. Waiting for completion...")
+        for t in threads:
+            t.join()
+
+        print(f"\nAll trials for {benchmark} completed.")
+
+    print("\nAll benchmarks done.")
 
 
 if __name__ == "__main__":
