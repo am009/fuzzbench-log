@@ -91,6 +91,9 @@ ALL_FUZZERS = (
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+script_path = os.path.realpath(__file__)
+script_dir = os.path.dirname(script_path)
+
 def count_existing_trials(benchmark: str, fuzzer: str) -> int:
     """Count trial directories for a benchmark-fuzzer combo across all experiment stores."""
     total = 0
@@ -199,7 +202,7 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
                 "-v", f"{EXPERIMENT_FILESTORE}:{EXPERIMENT_FILESTORE}",
                 "-e", f"FUZZER_LOG_FILE={results_dir}/fuzzerlog.txt",
                 "-v", "/usr/local/lib/libfuzzerlog.so:/usr/local/lib/libfuzzerlog.so",
-                "-v", "/home/user/fuzzbench-log/experiment/runner.py:/src/experiment/runner.py",
+                "-v", f"{script_dir}/experiment/runner.py:/src/experiment/runner.py",
                 "--shm-size=2g",
                 "--cap-add", "SYS_NICE",
                 "--cap-add", "SYS_PTRACE",
