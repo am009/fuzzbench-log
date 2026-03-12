@@ -241,14 +241,16 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
                 )
                 if os.path.isdir(corpus_path):
                     print(f"{tag} Generating coverage for {corpus_path}")
-                    ret = subprocess.run(
-                        [GEN_COVERAGE_SCRIPT, FUZZBENCH_DIR, corpus_path],
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    )
+                    coverage_log_path = os.path.join(corpus_path, "gen-coverage.log")
+                    with open(coverage_log_path, "wb") as coverage_log:
+                        ret = subprocess.run(
+                            [GEN_COVERAGE_SCRIPT, FUZZBENCH_DIR, corpus_path],
+                            stdout=coverage_log, stderr=coverage_log,
+                        )
                     if ret.returncode != 0:
-                        print(f"{tag} ERROR generating coverage")
+                        print(f"{tag} ERROR generating coverage, see {coverage_log_path}")
                     else:
-                        print(f"{tag} Coverage generated.")
+                        print(f"{tag} Coverage generated, log saved to {coverage_log_path}.")
                 else:
                     print(f"{tag} WARNING: corpus not found at {corpus_path}, skipping coverage.")
         finally:
