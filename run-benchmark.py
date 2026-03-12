@@ -108,7 +108,7 @@ def count_existing_trials(benchmark: str, fuzzer: str) -> int:
             if not os.path.isdir(trial_dir):
                 continue
             archive_path = os.path.join(
-                trial_dir, "corpus", "corpus-archive-0090.tar.gz"
+                trial_dir, "corpus", "corpus-archive-0092.tar.gz"
             )
             if os.path.isfile(archive_path):
                 total += 1
@@ -232,27 +232,33 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
         print(f"{tag} Container finished successfully, log saved to {docker_log_path}.")
 
         # ── 3. gen-coverage-standalone.sh ────────────────────────────
+        corpus_path = os.path.join(
+            EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
+            f"{benchmark}-{fuzzer}", f"trial-{trial_id}", "corpus",
+        )
+        if not os.path.isdir(corpus_path):
+            print(f"{tag} WARNING: corpus not found at {corpus_path}, skipping coverage.")
+            return
+
+        corpus_archive_path = os.path.join(corpus_path, "corpus-archive-0092.tar.gz")
+        if not os.path.isfile(corpus_archive_path):
+            print(f"{tag} ERROR: missing {corpus_archive_path}, fuzzer exited abnormally. Stopping this trial.")
+            return
+
         if not os.path.exists(GEN_COVERAGE_SCRIPT):
             print(f"{tag} WARNING: gen coverage script not found at {GEN_COVERAGE_SCRIPT}, skipping coverage.")
         else:
-            corpus_path = os.path.join(
-                EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
-                f"{benchmark}-{fuzzer}", f"trial-{trial_id}", "corpus",
-            )
-            if os.path.isdir(corpus_path):
-                print(f"{tag} Generating coverage for {corpus_path}")
-                coverage_log_path = os.path.join(corpus_path, "gen-coverage.log")
-                with open(coverage_log_path, "wb") as coverage_log:
-                    ret = subprocess.run(
-                        [GEN_COVERAGE_SCRIPT, FUZZBENCH_DIR, corpus_path],
-                        stdout=coverage_log, stderr=coverage_log,
-                    )
-                if ret.returncode != 0:
-                    print(f"{tag} ERROR generating coverage, see {coverage_log_path}")
-                else:
-                    print(f"{tag} Coverage generated, log saved to {coverage_log_path}.")
+            print(f"{tag} Generating coverage for {corpus_path}")
+            coverage_log_path = os.path.join(corpus_path, "gen-coverage.log")
+            with open(coverage_log_path, "wb") as coverage_log:
+                ret = subprocess.run(
+                    [GEN_COVERAGE_SCRIPT, FUZZBENCH_DIR, corpus_path],
+                    stdout=coverage_log, stderr=coverage_log,
+                )
+            if ret.returncode != 0:
+                print(f"{tag} ERROR generating coverage, see {coverage_log_path}")
             else:
-                print(f"{tag} WARNING: corpus not found at {corpus_path}, skipping coverage.")
+                print(f"{tag} Coverage generated, log saved to {coverage_log_path}.")
 
     print(f"{tag} Done, slot released.")
 
