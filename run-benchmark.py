@@ -160,115 +160,99 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
             print(f"{tag} ERROR pulling image")
             return
 
-        # ── 1.5. Set up fuse-zstd compressed results directory ──────────
         trial_dir = os.path.join(
             EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
             f"{benchmark}-{fuzzer}", f"trial-{trial_id}",
         )
         results_dir = os.path.join(trial_dir, "log")
-        results_data_dir = os.path.join(trial_dir, "log-data")
         os.makedirs(results_dir, exist_ok=True)
-        os.makedirs(results_data_dir, exist_ok=True)
-
-        print(f"{tag} Mounting fuse-zstd: {results_dir} -> {results_data_dir}")
-        fuse_proc = subprocess.Popen(
-            ["fuse-zstd",
-             "--mount-point", results_dir,
-             "--data-dir", results_data_dir,
-             "-c", "1"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-        # Give fuse-zstd a moment to initialize the mount
-        time.sleep(1)
-        if fuse_proc.poll() is not None:
-            print(f"{tag} ERROR: fuse-zstd exited early with code {fuse_proc.returncode}")
-            return
 
         # ── 2. docker run -i and stream logs to the trial directory ──────
-        try:
-            print(f"{tag} Starting container {container_name}")
-            docker_log_path = os.path.join(trial_dir, "docker.log")
-            commands = [
-                "docker", "run",
-                "--privileged", f"--cpus={CPUS_PER_RUNNER}",
-                "-i", "--rm",
-                "-e", f"INSTANCE_NAME={container_name}",
-                "-e", f"FUZZER={fuzzer}",
-                "-e", f"BENCHMARK={benchmark}",
-                "-e", f"EXPERIMENT={experiment_name}",
-                "-e", f"TRIAL_ID={trial_id}",
-                "-e", "MICRO_EXPERIMENT=False",
-                "-e", f"MAX_TOTAL_TIME={MAX_TOTAL_TIME}",
-                "-e", f"SNAPSHOT_PERIOD={SNAPSHOT_PERIOD}",
-                "-e", "NO_SEEDS=False",
-                "-e", "NO_DICTIONARIES=False",
-                "-e", "OSS_FUZZ_CORPUS=False",
-                "-e", "CUSTOM_SEED_CORPUS_DIR=",
-                "-e", f"DOCKER_REGISTRY={DOCKER_REGISTRY}",
-                "-e", f"EXPERIMENT_FILESTORE={EXPERIMENT_FILESTORE}",
-                "-e", f"FUZZ_TARGET={fuzz_target}",
-                "-e", "PRIVATE=False",
-                "-e", "LOCAL_EXPERIMENT=True",
-                "-v", f"{EXPERIMENT_FILESTORE}:{EXPERIMENT_FILESTORE}",
-                "-e", f"FUZZER_LOG_FILE={results_dir}/fuzzerlog.txt",
-                "-v", f"{libfuzzerlog_path}:/usr/local/lib/libfuzzerlog.so",
-                "-v", f"{script_dir}/experiment/runner.py:/src/experiment/runner.py", # TODO
-                "--shm-size=2g",
-                "--cap-add", "SYS_NICE",
-                "--cap-add", "SYS_PTRACE",
-                "--security-opt", "seccomp=unconfined",
-                "--name", container_name,
-                image,
-            ]
-            if DEBUG:
-                print(' '.join(commands))
-            with open(docker_log_path, "wb") as docker_log:
-                ret = subprocess.run(
-                    commands,
-                    stdout=docker_log,
-                    stderr=docker_log,
-                )
+        print(f"{tag} Starting container {container_name}")
+        docker_log_path = os.path.join(trial_dir, "docker.log")
+        fuzzer_log_path = os.path.join(results_dir, "fuzzerlog.txt")
+        commands = [
+            "docker", "run",
+            "--privileged", f"--cpus={CPUS_PER_RUNNER}",
+            "-i", "--rm",
+            "-e", f"INSTANCE_NAME={container_name}",
+            "-e", f"FUZZER={fuzzer}",
+            "-e", f"BENCHMARK={benchmark}",
+            "-e", f"EXPERIMENT={experiment_name}",
+            "-e", f"TRIAL_ID={trial_id}",
+            "-e", "MICRO_EXPERIMENT=False",
+            "-e", f"MAX_TOTAL_TIME={MAX_TOTAL_TIME}",
+            "-e", f"SNAPSHOT_PERIOD={SNAPSHOT_PERIOD}",
+            "-e", "NO_SEEDS=False",
+            "-e", "NO_DICTIONARIES=False",
+            "-e", "OSS_FUZZ_CORPUS=False",
+            "-e", "CUSTOM_SEED_CORPUS_DIR=",
+            "-e", f"DOCKER_REGISTRY={DOCKER_REGISTRY}",
+            "-e", f"EXPERIMENT_FILESTORE={EXPERIMENT_FILESTORE}",
+            "-e", f"FUZZ_TARGET={fuzz_target}",
+            "-e", "PRIVATE=False",
+            "-e", "LOCAL_EXPERIMENT=True",
+            "-v", f"{EXPERIMENT_FILESTORE}:{EXPERIMENT_FILESTORE}",
+            "-e", f"FUZZER_LOG_FILE={fuzzer_log_path}",
+            "-v", f"{libfuzzerlog_path}:/usr/local/lib/libfuzzerlog.so",
+            "-v", f"{script_dir}/common:/src/common", # TODO
+            "-v", f"{script_dir}/experiment/runner.py:/src/experiment/runner.py", # TODO
+            "--shm-size=2g",
+            "--cap-add", "SYS_NICE",
+            "--cap-add", "SYS_PTRACE",
+            "--security-opt", "seccomp=unconfined",
+            "--name", container_name,
+            image,
+        ]
+        if DEBUG:
+            print(' '.join(commands))
+        with open(docker_log_path, "wb") as docker_log:
+            ret = subprocess.run(
+                commands,
+                stdout=docker_log,
+                stderr=docker_log,
+            )
 
-            if ret.returncode != 0:
-                print(f"{tag} ERROR container exited with code {ret.returncode}, see {docker_log_path}")
-                return
+        if os.path.isfile(fuzzer_log_path):
+            print(f"{tag} Compressing {fuzzer_log_path} with zstd --fast")
+            compress_ret = subprocess.run(
+                ["zstd", "--fast", "--rm", "-f", fuzzer_log_path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if compress_ret.returncode != 0:
+                print(f"{tag} WARNING: failed to compress {fuzzer_log_path}")
+        else:
+            print(f"{tag} WARNING: fuzzer log not found at {fuzzer_log_path}, skipping compression.")
 
-            print(f"{tag} Container finished successfully, log saved to {docker_log_path}.")
+        if ret.returncode != 0:
+            print(f"{tag} ERROR container exited with code {ret.returncode}, see {docker_log_path}")
+            return
 
-            # ── 3. gen-coverage-standalone.sh ────────────────────────────
-            if not os.path.exists(GEN_COVERAGE_SCRIPT):
-                print(f"{tag} WARNING: gen coverage script not found at {GEN_COVERAGE_SCRIPT}, skipping coverage.")
-            else:
-                corpus_path = os.path.join(
-                    EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
-                    f"{benchmark}-{fuzzer}", f"trial-{trial_id}", "corpus",
-                )
-                if os.path.isdir(corpus_path):
-                    print(f"{tag} Generating coverage for {corpus_path}")
-                    coverage_log_path = os.path.join(corpus_path, "gen-coverage.log")
-                    with open(coverage_log_path, "wb") as coverage_log:
-                        ret = subprocess.run(
-                            [GEN_COVERAGE_SCRIPT, FUZZBENCH_DIR, corpus_path],
-                            stdout=coverage_log, stderr=coverage_log,
-                        )
-                    if ret.returncode != 0:
-                        print(f"{tag} ERROR generating coverage, see {coverage_log_path}")
-                    else:
-                        print(f"{tag} Coverage generated, log saved to {coverage_log_path}.")
+        print(f"{tag} Container finished successfully, log saved to {docker_log_path}.")
+
+        # ── 3. gen-coverage-standalone.sh ────────────────────────────
+        if not os.path.exists(GEN_COVERAGE_SCRIPT):
+            print(f"{tag} WARNING: gen coverage script not found at {GEN_COVERAGE_SCRIPT}, skipping coverage.")
+        else:
+            corpus_path = os.path.join(
+                EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
+                f"{benchmark}-{fuzzer}", f"trial-{trial_id}", "corpus",
+            )
+            if os.path.isdir(corpus_path):
+                print(f"{tag} Generating coverage for {corpus_path}")
+                coverage_log_path = os.path.join(corpus_path, "gen-coverage.log")
+                with open(coverage_log_path, "wb") as coverage_log:
+                    ret = subprocess.run(
+                        [GEN_COVERAGE_SCRIPT, FUZZBENCH_DIR, corpus_path],
+                        stdout=coverage_log, stderr=coverage_log,
+                    )
+                if ret.returncode != 0:
+                    print(f"{tag} ERROR generating coverage, see {coverage_log_path}")
                 else:
-                    print(f"{tag} WARNING: corpus not found at {corpus_path}, skipping coverage.")
-        finally:
-            # ── 4. Stop fuse-zstd and unmount ────────────────────────────
-            print(f"{tag} Stopping fuse-zstd and unmounting {results_dir}")
-            fuse_proc.terminate()
-            try:
-                fuse_proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                fuse_proc.kill()
-                fuse_proc.wait()
-            # Ensure the FUSE mount is fully released
-            subprocess.run(["fusermount", "-u", results_dir],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    print(f"{tag} Coverage generated, log saved to {coverage_log_path}.")
+            else:
+                print(f"{tag} WARNING: corpus not found at {corpus_path}, skipping coverage.")
 
     print(f"{tag} Done, slot released.")
 
@@ -292,10 +276,8 @@ def main():
     max_parallel = args.max_parallel
 
     # ── Dependency checks ─────────────────────────────────────────────
-    if not shutil.which("fuse-zstd"):
-        print("ERROR: 'fuse-zstd' command not found. Please download and install it:")
-        print("  wget https://github.com/am009/fuzzbench-log/releases/download/260312/fuse-zstd_1.2.0-1_amd64.deb")
-        print("  sudo dpkg -i fuse-zstd_1.2.0-1_amd64.deb")
+    if not shutil.which("zstd"):
+        print("ERROR: 'zstd' command not found. Please install it first.")
         sys.exit(1)
 
     if not os.path.exists(libfuzzerlog_path):

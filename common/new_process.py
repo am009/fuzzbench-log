@@ -90,7 +90,7 @@ def execute(  # pylint: disable=too-many-locals,too-many-branches
 
     logger.warning("Execute: " + " ".join(command))
     kwargs['stdout'] = output_file
-    kwargs['stderr'] = subprocess.STDOUT
+    kwargs['stderr'] = output_file
     if kill_children:
         kwargs['preexec_fn'] = os.setsid
 
