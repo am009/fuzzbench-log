@@ -97,14 +97,21 @@ ALL_FUZZERS = (
 libfuzzerlog_path = os.path.join(script_dir, "libfuzzerlog.so")
 
 def count_existing_trials(benchmark: str, fuzzer: str) -> int:
-    """Count trial directories for a benchmark-fuzzer combo across all experiment stores."""
+    """Count successful trials for a benchmark-fuzzer combo across all experiment stores."""
     total = 0
     for store in EXPERIMENT_FILESTORES:
         pattern = os.path.join(
             store, "*/experiment-folders",
             f"{benchmark}-{fuzzer}", "trial-*",
         )
-        total += len(glob.glob(pattern))
+        for trial_dir in glob.glob(pattern):
+            if not os.path.isdir(trial_dir):
+                continue
+            archive_path = os.path.join(
+                trial_dir, "corpus", "corpus-archive-0090.tar.gz"
+            )
+            if os.path.isfile(archive_path):
+                total += 1
     return total
 
 
@@ -138,7 +145,7 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
     """Pull image, run docker container (blocking), then generate coverage."""
     trial_id = next_trial_id()
     image = f"{DOCKER_REGISTRY}/runners/{fuzzer}/{benchmark}:{DOCKER_TAG}"
-    container_name = f"runner-{experiment_name}-{fuzzer}-{benchmark}-{trial_id}"
+    container_name = f"runner-{trial_id}"
 
     tag = f"[{fuzzer}/{benchmark} trial={trial_id}]"
 
@@ -177,13 +184,14 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
             print(f"{tag} ERROR: fuse-zstd exited early with code {fuse_proc.returncode}")
             return
 
-        # ── 2. docker run -d, then poll until container exits ────────────
+        # ── 2. docker run -i and stream logs to the trial directory ──────
         try:
             print(f"{tag} Starting container {container_name}")
+            docker_log_path = os.path.join(trial_dir, "docker.log")
             commands = [
                 "docker", "run",
                 "--privileged", f"--cpus={CPUS_PER_RUNNER}",
-                "-d", "--rm",
+                "-i", "--rm",
                 "-e", f"INSTANCE_NAME={container_name}",
                 "-e", f"FUZZER={fuzzer}",
                 "-e", f"BENCHMARK={benchmark}",
@@ -214,22 +222,18 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
             ]
             if DEBUG:
                 print(' '.join(commands))
-            ret = subprocess.run(commands, capture_output=True, text=True)
+            with open(docker_log_path, "wb") as docker_log:
+                ret = subprocess.run(
+                    commands,
+                    stdout=docker_log,
+                    stderr=docker_log,
+                )
 
             if ret.returncode != 0:
-                print(f"{tag} ERROR starting container")
+                print(f"{tag} ERROR container exited with code {ret.returncode}, see {docker_log_path}")
                 return
 
-            # Wait for the container to finish
-            print(f"{tag} Waiting for container to finish...")
-            ret = subprocess.run(["docker", "wait", container_name],
-                                 capture_output=True, text=True)
-            exit_code = ret.stdout.strip()
-
-            if exit_code != "0":
-                print(f"{tag} ERROR container exited with code {exit_code}")
-                return
-            print(f"{tag} Container finished successfully.")
+            print(f"{tag} Container finished successfully, log saved to {docker_log_path}.")
 
             # ── 3. gen-coverage-standalone.sh ────────────────────────────
             if not os.path.exists(GEN_COVERAGE_SCRIPT):
