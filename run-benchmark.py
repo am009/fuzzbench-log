@@ -28,6 +28,9 @@ import filelock
 
 # ── Global configuration ────────────────────────────────────────────────────
 
+script_path = os.path.realpath(__file__)
+script_dir = os.path.dirname(script_path)
+
 DEBUG=True
 
 REQUIRED_TRIALS = 5
@@ -38,12 +41,11 @@ MAX_TOTAL_TIME = 82800
 SNAPSHOT_PERIOD = 900
 CPUS_PER_RUNNER = 1
 EXPERIMENT_FILESTORES = [
-    "/home/user/experiment-data",
-    "/home/user/experiment-data-mobile",
+    f"{script_dir}/../experiment-data",
 ]
 EXPERIMENT_FILESTORE = EXPERIMENT_FILESTORES[0]  # where new trials are stored
-FUZZBENCH_DIR = "/home/user/fuzzbench-log"
-GEN_COVERAGE_SCRIPT = "/home/user/fuzzer-log-processor/gen-coverage-standalone.sh"
+FUZZBENCH_DIR = script_dir
+GEN_COVERAGE_SCRIPT = f"{script_dir}/../fuzzer-log-processor/gen-coverage-standalone.sh"
 
 # ── All fuzzers (from scheduler/exp-run.sh) ─────────────────────────────────
 
@@ -91,9 +93,6 @@ ALL_FUZZERS = (
 )
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
-
-script_path = os.path.realpath(__file__)
-script_dir = os.path.dirname(script_path)
 
 libfuzzerlog_path = os.path.join(script_dir, "libfuzzerlog.so")
 
@@ -233,22 +232,25 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
             print(f"{tag} Container finished successfully.")
 
             # ── 3. gen-coverage-standalone.sh ────────────────────────────
-            corpus_path = os.path.join(
-                EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
-                f"{benchmark}-{fuzzer}", f"trial-{trial_id}", "corpus",
-            )
-            if os.path.isdir(corpus_path):
-                print(f"{tag} Generating coverage for {corpus_path}")
-                ret = subprocess.run(
-                    [GEN_COVERAGE_SCRIPT, FUZZBENCH_DIR, corpus_path],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                )
-                if ret.returncode != 0:
-                    print(f"{tag} ERROR generating coverage")
-                else:
-                    print(f"{tag} Coverage generated.")
+            if not os.path.exists(GEN_COVERAGE_SCRIPT):
+                print(f"{tag} WARNING: gen coverage script not found at {GEN_COVERAGE_SCRIPT}, skipping coverage.")
             else:
-                print(f"{tag} WARNING: corpus not found at {corpus_path}, skipping coverage.")
+                corpus_path = os.path.join(
+                    EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
+                    f"{benchmark}-{fuzzer}", f"trial-{trial_id}", "corpus",
+                )
+                if os.path.isdir(corpus_path):
+                    print(f"{tag} Generating coverage for {corpus_path}")
+                    ret = subprocess.run(
+                        [GEN_COVERAGE_SCRIPT, FUZZBENCH_DIR, corpus_path],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    )
+                    if ret.returncode != 0:
+                        print(f"{tag} ERROR generating coverage")
+                    else:
+                        print(f"{tag} Coverage generated.")
+                else:
+                    print(f"{tag} WARNING: corpus not found at {corpus_path}, skipping coverage.")
         finally:
             # ── 4. Stop fuse-zstd and unmount ────────────────────────────
             print(f"{tag} Stopping fuse-zstd and unmounting {results_dir}")
