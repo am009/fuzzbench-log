@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Recursively compress fuzzerlog.txt files with gzip."""
+"""Recursively compress fuzzerlog.txt files with zstd."""
 
 import argparse
-import gzip
 import os
-import shutil
+import subprocess
 import sys
 
 
@@ -21,38 +20,48 @@ def compress_fuzzerlog_files(directory: str) -> int:
         print(f"Error: '{directory}' is not a valid directory", file=sys.stderr)
         sys.exit(1)
 
+    if not _has_zstd():
+        print("Error: 'zstd' command not found in PATH", file=sys.stderr)
+        sys.exit(1)
+
     compressed_count = 0
 
     for root, _, files in os.walk(directory):
         for filename in files:
-            if "fuzzerlog.txt" in filename and not filename.endswith(".gz"):
+            if "fuzzerlog.txt" in filename and not filename.endswith(".zst"):
                 filepath = os.path.join(root, filename)
-                gz_filepath = filepath + ".gz"
 
                 try:
-                    # Compress the file
-                    with open(filepath, 'rb') as f_in:
-                        with gzip.open(gz_filepath, 'wb', compresslevel=1) as f_out:
-                            shutil.copyfileobj(f_in, f_out)
-
-                    # Remove the original file
-                    os.remove(filepath)
+                    subprocess.run(
+                        ["zstd", "--fast", "--rm", filepath],
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                    )
 
                     print(f"Compressed: {filepath}")
                     compressed_count += 1
 
-                except Exception as e:
-                    print(f"Error compressing {filepath}: {e}", file=sys.stderr)
-                    # Clean up partial gz file if it exists
-                    if os.path.exists(gz_filepath):
-                        os.remove(gz_filepath)
+                except subprocess.CalledProcessError as e:
+                    error = e.stderr.strip() or str(e)
+                    print(f"Error compressing {filepath}: {error}", file=sys.stderr)
 
     return compressed_count
 
 
+def _has_zstd() -> bool:
+    return subprocess.run(
+        ["zstd", "--version"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    ).returncode == 0
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Recursively compress fuzzerlog.txt files with gzip"
+        description="Recursively compress fuzzerlog.txt files with zstd"
     )
     parser.add_argument(
         "directory",

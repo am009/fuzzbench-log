@@ -34,11 +34,15 @@ script_dir = os.path.dirname(script_path)
 DEBUG=True
 
 REQUIRED_TRIALS = 5
+HOST_UID = os.getuid()
+HOST_GID = os.getgid()
 
 DOCKER_REGISTRY = "wjk-pc-registry.fancybag.cn/fuzzbench"
 DOCKER_TAG = "latest"
 MAX_TOTAL_TIME = 82800
 SNAPSHOT_PERIOD = 900
+CORPUS_ARCHIVE_INDEX = MAX_TOTAL_TIME // SNAPSHOT_PERIOD
+CORPUS_ARCHIVE_NAME = f"corpus-archive-{CORPUS_ARCHIVE_INDEX:04d}.tar.gz"
 CPUS_PER_RUNNER = 1
 EXPERIMENT_FILESTORES = [
     f"{script_dir}/../experiment-data",
@@ -108,7 +112,7 @@ def count_existing_trials(benchmark: str, fuzzer: str) -> int:
             if not os.path.isdir(trial_dir):
                 continue
             archive_path = os.path.join(
-                trial_dir, "corpus", "corpus-archive-0092.tar.gz"
+                trial_dir, "corpus", CORPUS_ARCHIVE_NAME
             )
             if os.path.isfile(archive_path):
                 total += 1
@@ -213,6 +217,14 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
                 stderr=docker_log,
             )
 
+        chown_ret = subprocess.run(
+            ["sudo", "chown", "-R", f"{HOST_UID}:{HOST_GID}", trial_dir],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if chown_ret.returncode != 0:
+            print(f"{tag} WARNING: failed to change ownership for {trial_dir}")
+
         if os.path.isfile(fuzzer_log_path):
             print(f"{tag} Compressing {fuzzer_log_path} with zstd --fast")
             compress_ret = subprocess.run(
@@ -240,7 +252,7 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
             print(f"{tag} WARNING: corpus not found at {corpus_path}, skipping coverage.")
             return
 
-        corpus_archive_path = os.path.join(corpus_path, "corpus-archive-0092.tar.gz")
+        corpus_archive_path = os.path.join(corpus_path, CORPUS_ARCHIVE_NAME)
         if not os.path.isfile(corpus_archive_path):
             print(f"{tag} ERROR: missing {corpus_archive_path}, fuzzer exited abnormally. Stopping this trial.")
             return
@@ -282,6 +294,17 @@ def main():
     max_parallel = args.max_parallel
 
     # ── Dependency checks ─────────────────────────────────────────────
+    if SNAPSHOT_PERIOD <= 0:
+        print(f"ERROR: SNAPSHOT_PERIOD must be positive, got {SNAPSHOT_PERIOD}")
+        sys.exit(1)
+
+    if MAX_TOTAL_TIME % SNAPSHOT_PERIOD != 0:
+        print(
+            f"ERROR: MAX_TOTAL_TIME ({MAX_TOTAL_TIME}) must be an integer multiple of "
+            f"SNAPSHOT_PERIOD ({SNAPSHOT_PERIOD})"
+        )
+        sys.exit(1)
+
     if not shutil.which("zstd"):
         print("ERROR: 'zstd' command not found. Please install it first.")
         sys.exit(1)
