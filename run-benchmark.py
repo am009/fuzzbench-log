@@ -18,6 +18,7 @@ Each trial:
 import argparse
 import glob
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -93,6 +94,8 @@ ALL_FUZZERS = (
 
 script_path = os.path.realpath(__file__)
 script_dir = os.path.dirname(script_path)
+
+libfuzzerlog_path = os.path.join(script_dir, "libfuzzerlog.so")
 
 def count_existing_trials(benchmark: str, fuzzer: str) -> int:
     """Count trial directories for a benchmark-fuzzer combo across all experiment stores."""
@@ -201,8 +204,8 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
                 "-e", "LOCAL_EXPERIMENT=True",
                 "-v", f"{EXPERIMENT_FILESTORE}:{EXPERIMENT_FILESTORE}",
                 "-e", f"FUZZER_LOG_FILE={results_dir}/fuzzerlog.txt",
-                "-v", "/usr/local/lib/libfuzzerlog.so:/usr/local/lib/libfuzzerlog.so",
-                "-v", f"{script_dir}/experiment/runner.py:/src/experiment/runner.py",
+                "-v", f"{libfuzzerlog_path}:/usr/local/lib/libfuzzerlog.so",
+                "-v", f"{script_dir}/experiment/runner.py:/src/experiment/runner.py", # TODO
                 "--shm-size=2g",
                 "--cap-add", "SYS_NICE",
                 "--cap-add", "SYS_PTRACE",
@@ -279,6 +282,18 @@ def main():
     args = parser.parse_args()
 
     max_parallel = args.max_parallel
+
+    # ── Dependency checks ─────────────────────────────────────────────
+    if not shutil.which("fuse-zstd"):
+        print("ERROR: 'fuse-zstd' command not found. Please download and install it:")
+        print("  wget https://github.com/am009/fuzzbench-log/releases/download/260312/fuse-zstd_1.2.0-1_amd64.deb")
+        print("  sudo dpkg -i fuse-zstd_1.2.0-1_amd64.deb")
+        sys.exit(1)
+
+    if not os.path.exists(libfuzzerlog_path):
+        print(f"libfuzzerlog.so not found at {libfuzzerlog_path}, downloading...")
+        url = "https://github.com/am009/fuzzbench-log/releases/download/260312/libfuzzerlog.so"
+        subprocess.run(["wget", "-O", libfuzzerlog_path, url], check=True)
 
     # ── Pre-flight checks (once, before any benchmark) ────────────────
     if not args.skip_check:
