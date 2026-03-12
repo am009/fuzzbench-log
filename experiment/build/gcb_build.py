@@ -42,7 +42,8 @@ def build_base_images():
     """Build base images on GCB."""
     buildable_images = _get_buildable_images()
     image_templates = {
-        image: buildable_images[image] for image in ['base-image', 'worker']
+        image: buildable_images[image]
+        for image in ['base-image', 'base-builder-new', 'worker']
     }
     config = generate_cloudbuild.create_cloudbuild_spec(image_templates,
                                                         benchmark=None,

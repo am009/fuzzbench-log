@@ -35,6 +35,7 @@ from common import yaml_utils
 OSS_FUZZ_REPO_URL = 'https://github.com/google/oss-fuzz'
 OSS_FUZZ_IMAGE_UPGRADE_DATE = datetime.datetime(
     year=2021, month=8, day=25, tzinfo=datetime.timezone.utc)
+LOCAL_BASE_BUILDER = 'gcr.io/fuzzbench/base-builder-new'
 
 
 class GitRepoManager:
@@ -136,20 +137,24 @@ def _get_base_builder(dockerfile_path):
         lines = handle.readlines()
     for line in lines:
         line = line.strip()
-        if line.startswith('FROM gcr.io/oss-fuzz-base/base-builder'):
+        if (line.startswith('FROM gcr.io/oss-fuzz-base/base-builder') or
+                line.startswith(f'FROM {LOCAL_BASE_BUILDER}')):
             return line[len('FROM '):]
 
     raise ValueError('Could not find base-builder')
 
-def _replace_base_builder_digest(dockerfile_path, base_builder_name, digest):
-    """Replaces the base-builder digest in a Dockerfile."""
+def _replace_base_builder_digest(dockerfile_path, base_builder_name, digest=''):
+    """Replaces the base-builder reference in a Dockerfile."""
     with open(dockerfile_path) as handle:
         lines = handle.readlines()
 
     new_lines = []
     for line in lines:
         if line.strip().startswith('FROM'):
-            line = f'FROM {base_builder_name}@{digest}\n'
+            base_builder_ref = base_builder_name
+            if digest:
+                base_builder_ref = f'{base_builder_name}@{digest}'
+            line = f'FROM {base_builder_ref}\n'
 
         new_lines.append(line)
 
@@ -163,16 +168,14 @@ def replace_base_builder(benchmark_dir, commit_date):
     build the project as it was on |commit_date| without issue."""
     dockerfile_path = os.path.join(benchmark_dir, 'Dockerfile')
     base_builder_name = _get_base_builder(dockerfile_path)
+    if base_builder_name.startswith(LOCAL_BASE_BUILDER):
+        return
+
     base_builder_repo = _load_docker_repo(base_builder_name)
     if base_builder_repo:
-        # base_builder_digest = base_builder_repo.find_digest(commit_date)
-        base_builder_digest = ('sha256:fb1a9a49752c9e504687448d1f1a048ec1e0'
-                               '62e2e40f7e8a23e86b63ff3dad7c')
-        print(f'Using image {base_builder_digest}. '
-              'See https://github.com/google/oss-fuzz/issues/8625')
-        logs.info('Using base-builder with digest %s.', base_builder_digest)
-        _replace_base_builder_digest(
-            dockerfile_path, base_builder_name, base_builder_digest)
+        logs.info('Replacing base-builder %s with %s.', base_builder_name,
+                  LOCAL_BASE_BUILDER)
+        _replace_base_builder_digest(dockerfile_path, LOCAL_BASE_BUILDER, '')
 
 
 

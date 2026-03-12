@@ -7,9 +7,16 @@
   tag: 'base-image'
   type: 'base'
 
+'base-builder-new':
+  dockerfile: 'docker/base-builder-new/Dockerfile'
+  context: '.'
+  tag: 'base-builder-new'
+  type: 'base'
+
 'dispatcher-image':
   depends_on:
     - 'base-image'
+    - 'base-builder-new'
   dockerfile: 'docker/dispatcher-image/Dockerfile'
   context: 'docker/dispatcher-image'
   tag: 'dispatcher-image'
@@ -27,6 +34,8 @@
 # confusing because this doesn't involve benchmark-builder/Dockerfile. Rename
 # that and then rename this.
 '{benchmark}-project-builder':
+  depends_on:
+    - 'base-builder-new'
   dockerfile: 'benchmarks/{benchmark}/Dockerfile'
   context: 'benchmarks/{benchmark}'
   tag: 'builders/benchmark/{benchmark}'

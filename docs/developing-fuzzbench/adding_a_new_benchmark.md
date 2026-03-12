@@ -170,13 +170,13 @@ if your fuzz target binary is `$OUT/fuzz-target` the dictionary should be
 ### Dockerfile
 
 This file defines the steps to build the docker image for your benchmark.
-It should inherit from `gcr.io/oss-fuzz-base/base-builder` and do any one-time
+It should inherit from `gcr.io/fuzzbench/base-builder-new` and do any one-time
 setup needed to build your benchmark, but should not actually build the
 benchmark itself. It also should copy any files from the benchmark directory
 into the image that will be needed to build the benchmark.
 
 ```dockerfile
-FROM gcr.io/oss-fuzz-base/base-builder
+FROM gcr.io/fuzzbench/base-builder-new
 
 RUN apt-get update && \
     apt-get install -y \
@@ -242,13 +242,13 @@ Building benchmarks and fuzzers entails the following process:
 
 1. The benchmark image is built. This image is defined by
    `benchmarks/$BENCHMARK/Dockerfile`. It inherits from
-   `gcr.io/oss-fuzz-base/base-builder` which provides clang and other things
+   `gcr.io/fuzzbench/base-builder-new` which provides clang and other things
    needed by benchmarks (particular OSS-Fuzz benchmarks to build). Standard
-   benchmarks (usually) inherit from the latest version of `base-builder`
+   benchmarks (usually) inherit from the latest version of `base-builder-new`
    while OSS-Fuzz benchmarks (usually) inherit from the specific version of
-   `base-builder` that was used to build the version of the project's source
+   `base-builder-new` that was used to build the version of the project's source
    (commit) that the benchmark uses. This is to ensure that builds of these
-   benchmarks just work and don't break when `base-builder` is updated to use a
+   benchmarks just work and don't break when `base-builder-new` is updated to use a
    new version of clang. Note that pinning some benchmarks to specific versions
    of clang is a bit ugly and this behavior may change in the future.
 

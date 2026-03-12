@@ -14,7 +14,7 @@
 #
 ################################################################################
 
-FROM gcr.io/oss-fuzz-base/base-builder
+FROM gcr.io/fuzzbench/base-builder-new
 MAINTAINER twsmith@mozilla.com
 
 RUN dpkg --add-architecture i386 && \

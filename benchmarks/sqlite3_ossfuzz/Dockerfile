@@ -14,7 +14,7 @@
 #
 ################################################################################
 
-FROM gcr.io/oss-fuzz-base/base-builder
+FROM gcr.io/fuzzbench/base-builder-new
 RUN apt-get update && apt-get upgrade -y && apt-get install -y make autoconf automake libtool curl tcl zlib1g-dev
 
 RUN mkdir $SRC/sqlite3 && \

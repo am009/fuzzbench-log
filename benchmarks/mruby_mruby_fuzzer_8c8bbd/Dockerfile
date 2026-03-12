@@ -14,7 +14,7 @@
 #
 ################################################################################
 
-FROM gcr.io/oss-fuzz-base/base-builder
+FROM gcr.io/fuzzbench/base-builder-new
 RUN apt-get update && apt-get install -y build-essential ruby bison ninja-build \
     cmake zlib1g-dev libbz2-dev liblzma-dev
 RUN git clone \

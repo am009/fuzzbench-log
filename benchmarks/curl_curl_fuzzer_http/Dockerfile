@@ -14,7 +14,7 @@
 #
 ################################################################################
 
-FROM gcr.io/oss-fuzz-base/base-builder
+FROM gcr.io/fuzzbench/base-builder-new
 
 # Curl will be checked out to the commit hash specified in benchmark.yaml.
 RUN git clone https://github.com/curl/curl-fuzzer /src/curl_fuzzer

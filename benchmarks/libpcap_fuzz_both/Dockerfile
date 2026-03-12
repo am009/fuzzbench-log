@@ -14,7 +14,7 @@
 #
 ################################################################################
 
-FROM gcr.io/oss-fuzz-base/base-builder
+FROM gcr.io/fuzzbench/base-builder-new
 RUN apt-get update && \
     apt-get install -y make cmake flex bison libbsd-dev
 
@@ -28,4 +28,3 @@ RUN git clone https://github.com/the-tcpdump-group/tcpdump.git tcpdump && \
 
 WORKDIR $SRC
 COPY build.sh $SRC/
-

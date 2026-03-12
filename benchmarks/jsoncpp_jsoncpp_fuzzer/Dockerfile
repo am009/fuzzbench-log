@@ -14,7 +14,7 @@
 #
 ################################################################################
 
-FROM gcr.io/oss-fuzz-base/base-builder
+FROM gcr.io/fuzzbench/base-builder-new
 RUN apt-get update && apt-get install -y build-essential make curl wget
 
 # Install latest cmake.
@@ -26,4 +26,3 @@ RUN git clone https://github.com/open-source-parsers/jsoncpp
 WORKDIR jsoncpp
 
 COPY build.sh $SRC/
-

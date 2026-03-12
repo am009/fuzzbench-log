@@ -14,7 +14,7 @@
 #
 ################################################################################
 
-FROM gcr.io/oss-fuzz-base/base-builder
+FROM gcr.io/fuzzbench/base-builder-new
 RUN apt-get update && apt-get install -y make cmake
 RUN apt-get update && apt-get install -y \
     python-all-dev \

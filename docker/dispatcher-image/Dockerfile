@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM gcr.io/oss-fuzz-base/base-builder AS base-builder
+FROM gcr.io/fuzzbench/base-builder-new AS base-builder
 
 FROM gcr.io/fuzzbench/base-image
 
