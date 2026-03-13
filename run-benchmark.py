@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import random
 import time
 import yaml
 import filelock
@@ -383,19 +384,25 @@ def main():
         return
 
     # ── Launch threads for all benchmarks ────────────────────────────────
+    # Flatten and shuffle so different benchmarks/fuzzers are interleaved
+    trial_args = []
+    for benchmark, fuzzer, fuzz_target, experiment_name, needed in all_tasks:
+        for _ in range(needed):
+            trial_args.append((benchmark, fuzzer, fuzz_target, experiment_name))
+    random.shuffle(trial_args)
+
     semaphore = threading.Semaphore(max_parallel)
     threads = []
 
-    for benchmark, fuzzer, fuzz_target, experiment_name, needed in all_tasks:
-        for _ in range(needed):
-            t = threading.Thread(
-                target=run_trial,
-                args=(benchmark, fuzzer, fuzz_target, experiment_name, semaphore),
-                daemon=True,
-            )
-            t.start()
-            threads.append(t)
-            time.sleep(0.1)  # slight stagger to avoid pull stampede
+    for args_tuple in trial_args:
+        t = threading.Thread(
+            target=run_trial,
+            args=(*args_tuple, semaphore),
+            daemon=True,
+        )
+        t.start()
+        threads.append(t)
+        time.sleep(70)  # slight stagger to avoid pull stampede
 
     print(f"\nLaunched {len(threads)} trial threads. Waiting for completion...")
     for t in threads:
