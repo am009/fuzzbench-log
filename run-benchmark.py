@@ -46,6 +46,7 @@ CORPUS_ARCHIVE_NAME = f"corpus-archive-{CORPUS_ARCHIVE_INDEX:04d}.tar.gz"
 CPUS_PER_RUNNER = 1
 EXPERIMENT_FILESTORES = [
     f"{script_dir}/../experiment-data",
+    f"{script_dir}/../experiment-data-mobile",
 ]
 EXPERIMENT_FILESTORE = EXPERIMENT_FILESTORES[0]  # where new trials are stored
 FUZZBENCH_DIR = script_dir
@@ -330,6 +331,9 @@ def main():
 
     os.makedirs(EXPERIMENT_FILESTORE, exist_ok=True)
 
+    # ── Collect tasks across all benchmarks ──────────────────────────────
+    all_tasks = []  # list of (benchmark, fuzzer, fuzz_target, experiment_name, needed)
+
     for benchmark in args.benchmarks:
         print(f"\n{'='*60}")
         print(f"Benchmark: {benchmark}")
@@ -356,47 +360,46 @@ def main():
         fuzz_target = get_fuzz_target(benchmark)
         print(f"Fuzz target:    {fuzz_target}")
         print(f"Experiment:     {experiment_name}")
-        print(f"Max parallel:   {max_parallel}")
         print(f"Required trials per fuzzer: {REQUIRED_TRIALS}")
         print()
 
         # ── Count existing trials and build work list ────────────────────
-        tasks = []  # list of (fuzzer, needed_count)
         for fuzzer in ALL_FUZZERS:
             existing = count_existing_trials(benchmark, fuzzer)
             needed = REQUIRED_TRIALS - existing
             status = "OK" if needed <= 0 else f"need {needed} more"
             print(f"  {fuzzer:50s}  existing={existing}  {status}")
             if needed > 0:
-                tasks.append((fuzzer, needed))
+                all_tasks.append((benchmark, fuzzer, fuzz_target, experiment_name, needed))
 
-        total_new = sum(n for _, n in tasks)
-        print(f"\nTotal new trials to run: {total_new}")
-        if total_new == 0 or args.dry_run:
-            if total_new == 0:
-                print("All fuzzers have enough trials. Nothing to do.")
-            continue
+    total_new = sum(n for *_, n in all_tasks)
+    print(f"\nTotal new trials to run: {total_new}")
+    print(f"Max parallel:   {max_parallel}")
 
-        # ── Launch threads ───────────────────────────────────────────────
-        semaphore = threading.Semaphore(max_parallel)
-        threads = []
+    if total_new == 0 or args.dry_run:
+        if total_new == 0:
+            print("All fuzzers have enough trials. Nothing to do.")
+        print("\nAll benchmarks done.")
+        return
 
-        for fuzzer, needed in tasks:
-            for _ in range(needed):
-                t = threading.Thread(
-                    target=run_trial,
-                    args=(benchmark, fuzzer, fuzz_target, experiment_name, semaphore),
-                    daemon=True,
-                )
-                t.start()
-                threads.append(t)
-                time.sleep(0.1)  # slight stagger to avoid pull stampede
+    # ── Launch threads for all benchmarks ────────────────────────────────
+    semaphore = threading.Semaphore(max_parallel)
+    threads = []
 
-        print(f"\nLaunched {len(threads)} trial threads. Waiting for completion...")
-        for t in threads:
-            t.join()
+    for benchmark, fuzzer, fuzz_target, experiment_name, needed in all_tasks:
+        for _ in range(needed):
+            t = threading.Thread(
+                target=run_trial,
+                args=(benchmark, fuzzer, fuzz_target, experiment_name, semaphore),
+                daemon=True,
+            )
+            t.start()
+            threads.append(t)
+            time.sleep(0.1)  # slight stagger to avoid pull stampede
 
-        print(f"\nAll trials for {benchmark} completed.")
+    print(f"\nLaunched {len(threads)} trial threads. Waiting for completion...")
+    for t in threads:
+        t.join()
 
     print("\nAll benchmarks done.")
 
