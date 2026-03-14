@@ -28,9 +28,16 @@ def compress_fuzzerlog_files(directory: str) -> int:
 
     for root, _, files in os.walk(directory):
         for filename in files:
-            if "fuzzerlog.txt" in filename and not filename.endswith(".zst"):
+            if "fuzzerlog.txt" == filename:
                 filepath = os.path.join(root, filename)
+                # check for running container
+                import re
+                trial = re.search(r'/trial-([0-9]+)/', filepath).group(1)
+                running = subprocess.check_output(["docker", "ps"]).decode('utf-8')
+                if f'runner-{trial}\n' in running:
+                    continue
 
+                print(f"Compressing {filepath}")
                 try:
                     subprocess.run(
                         ["zstd", "--fast", "--rm", filepath],
