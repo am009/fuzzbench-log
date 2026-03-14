@@ -383,6 +383,8 @@ def main():
             print(f"  {fuzzer:50s}  existing={existing}  {status}")
             if needed > 0:
                 all_tasks.append((benchmark, fuzzer, fuzz_target, experiment_name, needed))
+        bm_needed = sum(n for bm, _, _, _, n in all_tasks if bm == benchmark)
+        print(f"\n  >> {benchmark}: {bm_needed} trials needed" if bm_needed > 0 else f"\n  >> {benchmark}: all OK")
 
     total_new = sum(n for *_, n in all_tasks)
     print(f"\nTotal new trials to run: {total_new}")
@@ -413,7 +415,7 @@ def main():
         )
         t.start()
         threads.append(t)
-        time.sleep(70)  # slight stagger to avoid pull stampede
+        time.sleep(10)  # slight stagger to avoid pull stampede
 
     print(f"\nLaunched {len(threads)} trial threads. Waiting for completion...")
     for t in threads:
