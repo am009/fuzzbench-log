@@ -149,7 +149,10 @@ class ExperimentResults:  # pylint: disable=too-many-instance-attributes
         Raises ValueError if the benchmark types are mixed.
         """
         benchmarks = [benchmark.name for benchmark in self.benchmarks]
-        return experiment_utils.get_experiment_type(benchmarks)
+        try:
+            return experiment_utils.get_experiment_type(benchmarks)
+        except (ValueError, Exception):  # pylint: disable=broad-except
+            return 'code'
 
     @property
     def _relevant_column(self):

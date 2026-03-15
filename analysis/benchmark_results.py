@@ -65,7 +65,10 @@ class BenchmarkResults:
 
         Raises ValueError in case of invalid benchmark type in the config.
         """
-        return benchmark_utils.get_type(self.name)
+        try:
+            return benchmark_utils.get_type(self.name)
+        except Exception:  # pylint: disable=broad-except
+            return 'code'
 
     @property
     def _relevant_column(self):

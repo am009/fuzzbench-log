@@ -22,6 +22,7 @@ import pandas as pd
 from analysis import data_utils
 from analysis import coverage_data_utils
 from analysis import experiment_results
+from analysis import filesystem_data_utils
 from analysis import plotting
 from analysis import queries
 from analysis import rendering
@@ -123,6 +124,17 @@ def get_arg_parser():
         default=False,
         help=('If set, and the experiment data is already cached, '
               'don\'t query the database again to get the data.'))
+    parser.add_argument(
+        '--from-filesystem',
+        action='store_true',
+        default=False,
+        help=('If set, read experiment data from the filesystem (blockdom '
+              'coverage JSON files) instead of the database.'))
+    parser.add_argument(
+        '--experiment-data-dir',
+        default='/sn640/fuzzerlog/experiment-data',
+        help=('Directory containing experiment data on the filesystem. '
+              'Default: /sn640/fuzzerlog/experiment-data'))
 
     return parser
 
@@ -131,7 +143,9 @@ def get_experiment_data(experiment_names,
                         main_experiment_name,
                         from_cached_data,
                         data_path,
-                        main_experiment_benchmarks=None):
+                        main_experiment_benchmarks=None,
+                        from_filesystem=False,
+                        experiment_data_dir=None):
     """Helper function that reads data from disk or from the database. Returns a
     dataframe and the experiment description."""
     if from_cached_data and os.path.exists(data_path):
@@ -139,6 +153,13 @@ def get_experiment_data(experiment_names,
         experiment_df = pd.read_csv(data_path)
         logger.info('Done reading data from %s.', data_path)
         return experiment_df, 'from cached data'
+    if from_filesystem:
+        logger.info('Reading experiment data from filesystem.')
+        experiment_df, description = (
+            filesystem_data_utils.get_experiment_data_from_filesystem(
+                experiment_names, experiment_data_dir))
+        logger.info('Done reading experiment data from filesystem.')
+        return experiment_df, description
     logger.info('Reading experiment data from db.')
     experiment_df = queries.get_experiment_data(experiment_names,
                                                 main_experiment_benchmarks)
@@ -149,21 +170,25 @@ def get_experiment_data(experiment_names,
 
 def modify_experiment_data_if_requested(  # pylint: disable=too-many-arguments
         experiment_df, experiment_names, benchmarks, fuzzers,
-        label_by_experiment, end_time, merge_with_clobber):
+        label_by_experiment, end_time, merge_with_clobber,
+        skip_benchmark_validation=False):
     """Helper function that returns a copy of |experiment_df| that is modified
     based on the other parameters. These parameters come from values specified
     by the user on the command line (or callers to generate_report)."""
     if benchmarks:
         # Filter benchmarks if requested.
         logger.debug('Filter included benchmarks: %s.', benchmarks)
-        experiment_df = data_utils.filter_benchmarks(experiment_df, benchmarks)
+        experiment_df = data_utils.filter_benchmarks(
+            experiment_df, benchmarks,
+            skip_validation=skip_benchmark_validation)
 
     if not experiment_df['benchmark'].empty:
         # Filter benchmarks in experiment DataFrame.
         unique_benchmarks = experiment_df['benchmark'].unique().tolist()
         logger.debug('Filter experiment_df benchmarks: %s.', unique_benchmarks)
-        experiment_df = data_utils.filter_benchmarks(experiment_df,
-                                                     unique_benchmarks)
+        experiment_df = data_utils.filter_benchmarks(
+            experiment_df, unique_benchmarks,
+            skip_validation=skip_benchmark_validation)
 
     if fuzzers is not None:
         # Filter fuzzers if requested.
@@ -202,7 +227,9 @@ def generate_report(experiment_names,
                     merge_with_clobber=False,
                     merge_with_clobber_nonprivate=False,
                     coverage_report=False,
-                    experiment_benchmarks=None):
+                    experiment_benchmarks=None,
+                    from_filesystem=False,
+                    experiment_data_dir=None):
     """Generate report helper."""
     if merge_with_clobber_nonprivate:
         experiment_names = (
@@ -221,7 +248,9 @@ def generate_report(experiment_names,
         main_experiment_name,
         from_cached_data,
         data_path,
-        main_experiment_benchmarks=experiment_benchmarks)
+        main_experiment_benchmarks=experiment_benchmarks,
+        from_filesystem=from_filesystem,
+        experiment_data_dir=experiment_data_dir)
 
     # TODO(metzman): Ensure that each experiment is in the df. Otherwise there
     # is a good chance user misspelled something.
@@ -229,7 +258,8 @@ def generate_report(experiment_names,
 
     experiment_df = modify_experiment_data_if_requested(
         experiment_df, experiment_names, benchmarks, fuzzers,
-        label_by_experiment, end_time, merge_with_clobber)
+        label_by_experiment, end_time, merge_with_clobber,
+        skip_benchmark_validation=from_filesystem)
 
     # Add |bugs_covered| column prior to export.
     experiment_df = data_utils.add_bugs_covered_column(experiment_df)
@@ -287,7 +317,9 @@ def main():
                     end_time=args.end_time,
                     merge_with_clobber=args.merge_with_clobber,
                     merge_with_clobber_nonprivate=args.merge_with_clobber_nonprivate,
-                    coverage_report=args.coverage_report)
+                    coverage_report=args.coverage_report,
+                    from_filesystem=args.from_filesystem,
+                    experiment_data_dir=args.experiment_data_dir)
 
 
 if __name__ == '__main__':
