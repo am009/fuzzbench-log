@@ -48,6 +48,7 @@ CPUS_PER_RUNNER = 1
 EXPERIMENT_FILESTORES = [
     f"{script_dir}/../experiment-data",
     f"{script_dir}/../experiment-data-mobile",
+    f"{script_dir}/../experiment-data-mobile-ssd",
 ]
 EXPERIMENT_FILESTORE = EXPERIMENT_FILESTORES[0]  # where new trials are stored
 FUZZBENCH_DIR = script_dir
@@ -239,14 +240,17 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
             print(f"{tag} WARNING: failed to change ownership for {trial_dir}")
 
         if os.path.isfile(fuzzer_log_path):
-            print(f"{tag} Compressing {fuzzer_log_path} with zstd --fast")
+            print(f"{tag} Compressing {fuzzer_log_path} with zstd -5")
             compress_ret = subprocess.run(
-                ["/usr/bin/time", "-v", "/usr/bin/zstd", "--fast", "--rm", "-f", fuzzer_log_path],
+                ["/usr/bin/time", "-v", "/usr/bin/zstd", "-5", "--rm", "-f", fuzzer_log_path],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
             if compress_ret.returncode != 0:
                 print(f"{tag} WARNING: failed to compress {fuzzer_log_path}")
+            else:
+                with open(f"{fuzzer_log_path}.zst.level.txt", "w", encoding="utf-8") as level_file:
+                    level_file.write("5\n")
         else:
             print(f"{tag} WARNING: fuzzer log not found at {fuzzer_log_path}, skipping compression.")
 
