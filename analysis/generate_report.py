@@ -135,6 +135,11 @@ def get_arg_parser():
         default='/sn640/fuzzerlog/experiment-data',
         help=('Directory containing experiment data on the filesystem. '
               'Default: /sn640/fuzzerlog/experiment-data'))
+    parser.add_argument(
+        '--from-data-file',
+        default=None,
+        help=('Path to a pre-built data CSV/CSV.gz file. When set, '
+              'skip database/filesystem querying and read data directly.'))
 
     return parser
 
@@ -145,9 +150,15 @@ def get_experiment_data(experiment_names,
                         data_path,
                         main_experiment_benchmarks=None,
                         from_filesystem=False,
-                        experiment_data_dir=None):
+                        experiment_data_dir=None,
+                        from_data_file=None):
     """Helper function that reads data from disk or from the database. Returns a
     dataframe and the experiment description."""
+    if from_data_file and os.path.exists(from_data_file):
+        logger.info('Reading experiment data from data file %s.', from_data_file)
+        experiment_df = pd.read_csv(from_data_file)
+        logger.info('Done reading data from %s.', from_data_file)
+        return experiment_df, f'from data file: {from_data_file}'
     if from_cached_data and os.path.exists(data_path):
         logger.info('Reading experiment data from %s.', data_path)
         experiment_df = pd.read_csv(data_path)
@@ -229,7 +240,8 @@ def generate_report(experiment_names,
                     coverage_report=False,
                     experiment_benchmarks=None,
                     from_filesystem=False,
-                    experiment_data_dir=None):
+                    experiment_data_dir=None,
+                    from_data_file=None):
     """Generate report helper."""
     if merge_with_clobber_nonprivate:
         experiment_names = (
@@ -250,7 +262,8 @@ def generate_report(experiment_names,
         data_path,
         main_experiment_benchmarks=experiment_benchmarks,
         from_filesystem=from_filesystem,
-        experiment_data_dir=experiment_data_dir)
+        experiment_data_dir=experiment_data_dir,
+        from_data_file=from_data_file)
 
     # TODO(metzman): Ensure that each experiment is in the df. Otherwise there
     # is a good chance user misspelled something.
@@ -259,7 +272,7 @@ def generate_report(experiment_names,
     experiment_df = modify_experiment_data_if_requested(
         experiment_df, experiment_names, benchmarks, fuzzers,
         label_by_experiment, end_time, merge_with_clobber,
-        skip_benchmark_validation=from_filesystem)
+        skip_benchmark_validation=(from_filesystem or from_data_file is not None))
 
     # Add |bugs_covered| column prior to export.
     experiment_df = data_utils.add_bugs_covered_column(experiment_df)
@@ -319,7 +332,8 @@ def main():
                     merge_with_clobber_nonprivate=args.merge_with_clobber_nonprivate,
                     coverage_report=args.coverage_report,
                     from_filesystem=args.from_filesystem,
-                    experiment_data_dir=args.experiment_data_dir)
+                    experiment_data_dir=args.experiment_data_dir,
+                    from_data_file=args.from_data_file)
 
 
 if __name__ == '__main__':
