@@ -174,6 +174,8 @@ def _unpack_clusterfuzz_seed_corpus(fuzz_target_path, corpus_directory):
 def run_fuzzer(max_total_time, log_filename):
     """Runs the fuzzer using its script. Logs stdout and stderr of the fuzzer
     script to |log_filename| if provided."""
+    global fuzzer_errored_out  # pylint:disable=invalid-name
+
     input_corpus = environment.get('SEED_CORPUS_DIR')
     output_corpus = os.environ['OUTPUT_CORPUS_DIR']
     fuzz_target_name = environment.get('FUZZ_TARGET')
@@ -196,42 +198,67 @@ def run_fuzzer(max_total_time, log_filename):
         env = os.environ.copy()
         sanitizer.set_sanitizer_options(env, is_fuzz_run=True)
 
-    try:
-        # Because the runner is launched at a higher priority,
-        # set it back to the default(0) for fuzzing processes.
-        command = [
-            'nice', '-n',
-            str(0 - runner_niceness), 'python3', '-u', '-c',
-            (f'from fuzzers.{environment.get("FUZZER")} import fuzzer; '
-             'fuzzer.fuzz('
-             f'"{shlex.quote(input_corpus)}", "{shlex.quote(output_corpus)}", '
-             f'"{shlex.quote(target_binary)}")')
-        ]
+    # Because the runner is launched at a higher priority, set it back to the
+    # default(0) for fuzzing processes.
+    command = [
+        'nice', '-n',
+        str(0 - runner_niceness), 'python3', '-u', '-c',
+        (f'from fuzzers.{environment.get("FUZZER")} import fuzzer; '
+         'fuzzer.fuzz('
+         f'"{shlex.quote(input_corpus)}", "{shlex.quote(output_corpus)}", '
+         f'"{shlex.quote(target_binary)}")')
+    ]
 
-        # Write output to stdout if user is fuzzing from command line.
-        # Otherwise, write output to the log file.
-        if 'FUZZER_LOG_FILE' not in env:
-            fuzzer_log_file = os.path.join(os.path.dirname(log_filename), 'fuzzerlog.txt')
-            env['FUZZER_LOG_FILE'] = fuzzer_log_file
-            logs.warning("FUZZER_LOG_FILE set to " + env['FUZZER_LOG_FILE'])
-        if environment.get('FUZZ_OUTSIDE_EXPERIMENT'):
-            new_process.execute(command,
-                                timeout=max_total_time,
-                                write_to_stdout=True,
-                                kill_children=True,
-                                env=env)
-        else:
-            with open(log_filename, 'wb') as log_file:
-                new_process.execute(command,
-                                    timeout=max_total_time,
-                                    write_to_stdout=False,
-                                    output_file=log_file,
-                                    kill_children=True,
-                                    env=env)
-    except subprocess.CalledProcessError:
-        global fuzzer_errored_out  # pylint:disable=invalid-name
-        fuzzer_errored_out = True
-        logs.error('Fuzz process returned nonzero.')
+    # Write output to stdout if user is fuzzing from command line.
+    # Otherwise, write output to the log file.
+    if 'FUZZER_LOG_FILE' not in env:
+        fuzzer_log_file = os.path.join(os.path.dirname(log_filename),
+                                       'fuzzerlog.txt')
+        env['FUZZER_LOG_FILE'] = fuzzer_log_file
+        logs.warning('FUZZER_LOG_FILE set to %s', env['FUZZER_LOG_FILE'])
+
+    start_time = time.time()
+    restart_count = 0
+    while True:
+        timeout = max_total_time
+        if max_total_time is not None:
+            elapsed = time.time() - start_time
+            timeout = max(0, max_total_time - elapsed)
+            if timeout == 0:
+                logs.info('Reached max_total_time, stopping fuzzer restarts.')
+                return
+
+        try:
+            if environment.get('FUZZ_OUTSIDE_EXPERIMENT'):
+                result = new_process.execute(command,
+                                             timeout=timeout,
+                                             write_to_stdout=True,
+                                             kill_children=True,
+                                             env=env)
+            else:
+                with open(log_filename, 'ab') as log_file:
+                    result = new_process.execute(command,
+                                                 timeout=timeout,
+                                                 write_to_stdout=False,
+                                                 output_file=log_file,
+                                                 kill_children=True,
+                                                 env=env)
+
+            if result.timed_out:
+                return
+            return
+        except subprocess.CalledProcessError as error:
+            fuzzer_errored_out = True
+            restart_count += 1
+            logs.error('Fuzz process returned nonzero: %s', error)
+        except Exception as error:  # pylint:disable=broad-except
+            fuzzer_errored_out = True
+            restart_count += 1
+            logs.error('Unexpected exception while running fuzzer: %s', error)
+
+        logs.warning('Restarting fuzzer after failure (restart #%d).',
+                     restart_count)
+        time.sleep(RETRY_DELAY)
 
 
 class TrialRunner:  # pylint: disable=too-many-instance-attributes
