@@ -328,7 +328,7 @@ def main():
 
     if not os.path.exists(libfuzzerlog_path):
         print(f"libfuzzerlog.so not found at {libfuzzerlog_path}, downloading...")
-        url = "https://github.com/am009/fuzzbench-log/releases/download/260312/libfuzzerlog.so"
+        url = "https://github.com/am009/fuzzbench-log/releases/download/260321/libfuzzerlog.so"
         subprocess.run(["wget", "-O", libfuzzerlog_path, url], check=True)
 
     # ── Pre-flight checks (once, before any benchmark) ────────────────
