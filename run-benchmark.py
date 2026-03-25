@@ -256,9 +256,8 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
 
         if ret.returncode != 0:
             print(f"{tag} ERROR container exited with code {ret.returncode}, see {docker_log_path}")
-            return
-
-        print(f"{tag} Container finished successfully, log saved to {docker_log_path}.")
+        else:
+            print(f"{tag} Container finished successfully, log saved to {docker_log_path}.")
 
         # ── 3. gen-coverage-standalone.sh ────────────────────────────
         corpus_path = os.path.join(
@@ -288,6 +287,13 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
                 print(f"{tag} ERROR generating coverage, see {coverage_log_path}")
             else:
                 print(f"{tag} Coverage generated, log saved to {coverage_log_path}.")
+        chown_ret2 = subprocess.run(
+            ["sudo", "chown", "-R", f"{HOST_UID}:{HOST_GID}", trial_dir],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if chown_ret2.returncode != 0:
+            print(f"{tag} WARNING: (2) failed to change ownership for {trial_dir}")
 
     print(f"{tag} Done, slot released.")
 
