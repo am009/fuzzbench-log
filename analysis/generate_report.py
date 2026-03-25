@@ -37,7 +37,11 @@ DATA_FILENAME = 'data.csv.gz'
 def get_arg_parser():
     """Returns argument parser."""
     parser = argparse.ArgumentParser(description='Report generator.')
-    parser.add_argument('experiments', nargs='+', help='Experiment names')
+    parser.add_argument(
+        'experiments',
+        nargs='+',
+        help=('Experiment names, or fuzzer names when '
+              '--from-filesystem is set.'))
     parser.add_argument(
         '-n',
         '--report-name',
@@ -128,13 +132,16 @@ def get_arg_parser():
         '--from-filesystem',
         action='store_true',
         default=False,
-        help=('If set, read experiment data from the filesystem (blockdom '
-              'coverage JSON files) instead of the database.'))
+        help=('If set, treat positional args as fuzzer names and read '
+              'experiment data from the filesystem (blockdom coverage JSON '
+              'files) instead of the database.'))
     parser.add_argument(
         '--experiment-data-dir',
-        default='/sn640/fuzzerlog/experiment-data',
-        help=('Directory containing experiment data on the filesystem. '
-              'Default: /sn640/fuzzerlog/experiment-data'))
+        action='append',
+        default=None,
+        help=('Experiment-data directory to scan in filesystem mode. Repeat '
+              'this flag to search multiple directories. Defaults to the '
+              'built-in filesystem search paths.'))
     parser.add_argument(
         '--from-data-file',
         default=None,
@@ -150,7 +157,7 @@ def get_experiment_data(experiment_names,
                         data_path,
                         main_experiment_benchmarks=None,
                         from_filesystem=False,
-                        experiment_data_dir=None,
+                        experiment_data_dirs=None,
                         from_data_file=None):
     """Helper function that reads data from disk or from the database. Returns a
     dataframe and the experiment description."""
@@ -167,8 +174,8 @@ def get_experiment_data(experiment_names,
     if from_filesystem:
         logger.info('Reading experiment data from filesystem.')
         experiment_df, description = (
-            filesystem_data_utils.get_experiment_data_from_filesystem(
-                experiment_names, experiment_data_dir))
+            filesystem_data_utils.get_experiment_data_by_fuzzers(
+                experiment_names, experiment_data_dirs))
         logger.info('Done reading experiment data from filesystem.')
         return experiment_df, description
     logger.info('Reading experiment data from db.')
@@ -240,7 +247,7 @@ def generate_report(experiment_names,
                     coverage_report=False,
                     experiment_benchmarks=None,
                     from_filesystem=False,
-                    experiment_data_dir=None,
+                    experiment_data_dirs=None,
                     from_data_file=None):
     """Generate report helper."""
     if merge_with_clobber_nonprivate:
@@ -249,7 +256,8 @@ def generate_report(experiment_names,
                 experiment_names))
         merge_with_clobber = True
 
-    main_experiment_name = experiment_names[0]
+    main_experiment_name = ('-'.join(experiment_names)
+                            if from_filesystem else experiment_names[0])
     report_name = report_name or main_experiment_name
 
     filesystem.create_directory(report_directory)
@@ -262,7 +270,7 @@ def generate_report(experiment_names,
         data_path,
         main_experiment_benchmarks=experiment_benchmarks,
         from_filesystem=from_filesystem,
-        experiment_data_dir=experiment_data_dir,
+        experiment_data_dirs=experiment_data_dirs,
         from_data_file=from_data_file)
 
     # TODO(metzman): Ensure that each experiment is in the df. Otherwise there
@@ -332,7 +340,7 @@ def main():
                     merge_with_clobber_nonprivate=args.merge_with_clobber_nonprivate,
                     coverage_report=args.coverage_report,
                     from_filesystem=args.from_filesystem,
-                    experiment_data_dir=args.experiment_data_dir,
+                    experiment_data_dirs=args.experiment_data_dir,
                     from_data_file=args.from_data_file)
 
 
