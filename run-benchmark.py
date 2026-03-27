@@ -173,7 +173,7 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
         # ── 1. docker pull ───────────────────────────────────────────────
         print(f"{tag} Pulling {image}")
         ret = subprocess.run(["docker", "pull", image],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if ret.returncode != 0:
             print(f"{tag} ERROR pulling image")
             return
@@ -182,118 +182,121 @@ def run_trial(benchmark: str, fuzzer: str, fuzz_target: str,
             EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
             f"{benchmark}-{fuzzer}", f"trial-{trial_id}",
         )
-        results_dir = os.path.join(trial_dir, "log")
-        os.makedirs(results_dir, exist_ok=True)
+        try:
+            results_dir = os.path.join(trial_dir, "log")
+            os.makedirs(results_dir, exist_ok=True)
 
-        # ── 2. docker run -i and stream logs to the trial directory ──────
-        print(f"{tag} Starting container {container_name}")
-        docker_log_path = os.path.join(trial_dir, "docker.log")
-        fuzzer_log_path = os.path.join(results_dir, "fuzzerlog.txt")
-        commands = [
-            "docker", "run",
-            "--privileged", f"--cpus={CPUS_PER_RUNNER}",
-            "-i", "--rm",
-            "-e", f"INSTANCE_NAME={container_name}",
-            "-e", f"FUZZER={fuzzer}",
-            "-e", f"BENCHMARK={benchmark}",
-            "-e", f"EXPERIMENT={experiment_name}",
-            "-e", f"TRIAL_ID={trial_id}",
-            "-e", "MICRO_EXPERIMENT=False",
-            "-e", f"MAX_TOTAL_TIME={MAX_TOTAL_TIME}",
-            "-e", f"SNAPSHOT_PERIOD={SNAPSHOT_PERIOD}",
-            "-e", "NO_SEEDS=False",
-            "-e", "NO_DICTIONARIES=False",
-            "-e", "OSS_FUZZ_CORPUS=False",
-            "-e", "CUSTOM_SEED_CORPUS_DIR=",
-            "-e", f"DOCKER_REGISTRY={DOCKER_REGISTRY}",
-            "-e", f"EXPERIMENT_FILESTORE={EXPERIMENT_FILESTORE}",
-            "-e", f"FUZZ_TARGET={fuzz_target}",
-            "-e", "PRIVATE=False",
-            "-e", "LOCAL_EXPERIMENT=True",
-            "-v", f"{EXPERIMENT_FILESTORE}:{EXPERIMENT_FILESTORE}",
-            "-e", f"FUZZER_LOG_FILE={fuzzer_log_path}",
-            "-v", f"{libfuzzerlog_path}:/usr/local/lib/libfuzzerlog.so",
-            "-v", f"{script_dir}/common:/src/common", # TODO
-            "-v", f"{script_dir}/experiment/runner.py:/src/experiment/runner.py", # TODO
-            "--shm-size=2g",
-            "--cap-add", "SYS_NICE",
-            "--cap-add", "SYS_PTRACE",
-            "--security-opt", "seccomp=unconfined",
-            "--name", container_name,
-            image,
-        ]
-        if DEBUG:
-            print(' '.join(commands))
-        with open(docker_log_path, "wb") as docker_log:
-            ret = subprocess.run(
-                commands,
-                stdout=docker_log,
-                stderr=docker_log,
-            )
+            # ── 2. docker run -i and stream logs to the trial directory ──────
+            print(f"{tag} Starting container {container_name}")
+            docker_log_path = os.path.join(trial_dir, "docker.log")
+            fuzzer_log_path = os.path.join(results_dir, "fuzzerlog.txt")
+            commands = [
+                "docker", "run",
+                "--privileged", f"--cpus={CPUS_PER_RUNNER}",
+                "-i", "--rm",
+                "-e", f"INSTANCE_NAME={container_name}",
+                "-e", f"FUZZER={fuzzer}",
+                "-e", f"BENCHMARK={benchmark}",
+                "-e", f"EXPERIMENT={experiment_name}",
+                "-e", f"TRIAL_ID={trial_id}",
+                "-e", "MICRO_EXPERIMENT=False",
+                "-e", f"MAX_TOTAL_TIME={MAX_TOTAL_TIME}",
+                "-e", f"SNAPSHOT_PERIOD={SNAPSHOT_PERIOD}",
+                "-e", "NO_SEEDS=False",
+                "-e", "NO_DICTIONARIES=False",
+                "-e", "OSS_FUZZ_CORPUS=False",
+                "-e", "CUSTOM_SEED_CORPUS_DIR=",
+                "-e", f"DOCKER_REGISTRY={DOCKER_REGISTRY}",
+                "-e", f"EXPERIMENT_FILESTORE={EXPERIMENT_FILESTORE}",
+                "-e", f"FUZZ_TARGET={fuzz_target}",
+                "-e", "PRIVATE=False",
+                "-e", "LOCAL_EXPERIMENT=True",
+                "-v", f"{EXPERIMENT_FILESTORE}:{EXPERIMENT_FILESTORE}",
+                "-e", f"FUZZER_LOG_FILE={fuzzer_log_path}",
+                "-v", f"{libfuzzerlog_path}:/usr/local/lib/libfuzzerlog.so",
+                "-v", f"{script_dir}/common:/src/common", # TODO
+                "-v", f"{script_dir}/experiment/runner.py:/src/experiment/runner.py", # TODO
+                "--shm-size=2g",
+                "--cap-add", "SYS_NICE",
+                "--cap-add", "SYS_PTRACE",
+                "--security-opt", "seccomp=unconfined",
+                "--name", container_name,
+                image,
+            ]
+            if DEBUG:
+                print(' '.join(commands))
+            with open(docker_log_path, "wb") as docker_log:
+                ret = subprocess.run(
+                    commands,
+                    stdout=docker_log,
+                    stderr=docker_log,
+                )
 
-        chown_ret = subprocess.run(
-            ["sudo", "chown", "-R", f"{HOST_UID}:{HOST_GID}", trial_dir],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        if chown_ret.returncode != 0:
-            print(f"{tag} WARNING: failed to change ownership for {trial_dir}")
-
-        if os.path.isfile(fuzzer_log_path):
-            print(f"{tag} Compressing {fuzzer_log_path} with zstd -5")
-            compress_ret = subprocess.run(
-                ["/usr/bin/time", "-v", "/usr/bin/zstd", "-5", "--rm", "-f", fuzzer_log_path],
+            chown_ret = subprocess.run(
+                ["sudo", "chown", "-R", f"{HOST_UID}:{HOST_GID}", trial_dir],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            if compress_ret.returncode != 0:
-                print(f"{tag} WARNING: failed to compress {fuzzer_log_path}")
-            else:
-                with open(f"{fuzzer_log_path}.zst.level.txt", "w", encoding="utf-8") as level_file:
-                    level_file.write("5\n")
-        else:
-            print(f"{tag} WARNING: fuzzer log not found at {fuzzer_log_path}, skipping compression.")
+            if chown_ret.returncode != 0:
+                print(f"{tag} WARNING: failed to change ownership for {trial_dir}")
 
-        if ret.returncode != 0:
-            print(f"{tag} ERROR container exited with code {ret.returncode}, see {docker_log_path}")
-        else:
-            print(f"{tag} Container finished successfully, log saved to {docker_log_path}.")
-
-        # ── 3. gen-coverage-standalone.sh ────────────────────────────
-        corpus_path = os.path.join(
-            EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
-            f"{benchmark}-{fuzzer}", f"trial-{trial_id}", "corpus",
-        )
-        if not os.path.isdir(corpus_path):
-            print(f"{tag} WARNING: corpus not found at {corpus_path}, skipping coverage.")
-            return
-
-        corpus_archive_path = os.path.join(corpus_path, CORPUS_ARCHIVE_NAME)
-        if not os.path.isfile(corpus_archive_path):
-            print(f"{tag} ERROR: missing {corpus_archive_path}, fuzzer exited abnormally. Stopping this trial.")
-            return
-
-        if not os.path.exists(GEN_COVERAGE_SCRIPT):
-            print(f"{tag} WARNING: gen coverage script not found at {GEN_COVERAGE_SCRIPT}, skipping coverage.")
-        else:
-            print(f"{tag} Generating coverage for {corpus_path}")
-            coverage_log_path = os.path.join(corpus_path, "gen-coverage.log")
-            with open(coverage_log_path, "wb") as coverage_log:
-                ret = subprocess.run(
-                    [GEN_COVERAGE_SCRIPT, FUZZBENCH_DIR, corpus_path],
-                    stdout=coverage_log, stderr=coverage_log,
+            if os.path.isfile(fuzzer_log_path):
+                print(f"{tag} Compressing {fuzzer_log_path} with zstd -5")
+                compress_ret = subprocess.run(
+                    ["/usr/bin/time", "-v", "/usr/bin/zstd", "-5", "--rm", "-f", fuzzer_log_path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 )
-            if ret.returncode != 0:
-                print(f"{tag} ERROR generating coverage, see {coverage_log_path}")
+                if compress_ret.returncode != 0:
+                    print(f"{tag} WARNING: failed to compress {fuzzer_log_path}")
+                else:
+                    with open(f"{fuzzer_log_path}.zst.level.txt", "w", encoding="utf-8") as level_file:
+                        level_file.write("5\n")
             else:
-                print(f"{tag} Coverage generated, log saved to {coverage_log_path}.")
-        chown_ret2 = subprocess.run(
-            ["sudo", "chown", "-R", f"{HOST_UID}:{HOST_GID}", trial_dir],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        if chown_ret2.returncode != 0:
-            print(f"{tag} WARNING: (2) failed to change ownership for {trial_dir}")
+                print(f"{tag} WARNING: fuzzer log not found at {fuzzer_log_path}, skipping compression.")
+
+            if ret.returncode != 0:
+                print(f"{tag} ERROR container exited with code {ret.returncode}, see {docker_log_path}")
+            else:
+                print(f"{tag} Container finished successfully, log saved to {docker_log_path}.")
+
+            # ── 3. gen-coverage-standalone.sh ────────────────────────────
+            corpus_path = os.path.join(
+                EXPERIMENT_FILESTORE, experiment_name, "experiment-folders",
+                f"{benchmark}-{fuzzer}", f"trial-{trial_id}", "corpus",
+            )
+            if not os.path.isdir(corpus_path):
+                print(f"{tag} WARNING: corpus not found at {corpus_path}, skipping coverage.")
+                return
+
+            corpus_archive_path = os.path.join(corpus_path, CORPUS_ARCHIVE_NAME)
+            if not os.path.isfile(corpus_archive_path):
+                print(f"{tag} ERROR: missing {corpus_archive_path}, fuzzer exited abnormally. Stopping this trial.")
+                return
+
+            if not os.path.exists(GEN_COVERAGE_SCRIPT):
+                print(f"{tag} WARNING: gen coverage script not found at {GEN_COVERAGE_SCRIPT}, skipping coverage.")
+            else:
+                print(f"{tag} Generating coverage for {corpus_path}")
+                coverage_log_path = os.path.join(corpus_path, "gen-coverage.log")
+                with open(coverage_log_path, "wb") as coverage_log:
+                    ret = subprocess.run(
+                        [GEN_COVERAGE_SCRIPT, FUZZBENCH_DIR, corpus_path],
+                        stdout=coverage_log, stderr=coverage_log,
+                    )
+                if ret.returncode != 0:
+                    print(f"{tag} ERROR generating coverage, see {coverage_log_path}")
+                else:
+                    print(f"{tag} Coverage generated, log saved to {coverage_log_path}.")
+            
+        finally:
+            chown_ret2 = subprocess.run(
+                ["sudo", "chown", "-R", f"{HOST_UID}:{HOST_GID}", trial_dir],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if chown_ret2.returncode != 0:
+                print(f"{tag} WARNING: (2) failed to change ownership for {trial_dir}")
 
     print(f"{tag} Done, slot released.")
 
